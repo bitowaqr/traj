@@ -1,79 +1,25 @@
----
-title: "GBTM and k-means analysis of longitudinal data"  
-author: "Paul Schneider"  
-date: "2018-04-30"
-output:  
-  html_document:  
-    keep_md: true  
----
+# GBTM and k-means analysis of longitudinal data
+
+  __Paul Schneider__  
+  2018-04-30  
+<br><br>
+
+
+Step-by-Step tutorial for cluster analysis of longitudinal data using the R-packages crimCV and traj  
+Simply copy-paste the code chunks or look at the code only version: 
+_link_   
+
 
 # Setup packages and functions
 
+The chunk below installs and loads the required packages and also load some slightly *modified* functions from both packages.
 
 ```r
 url = "https://raw.githubusercontent.com/bitowaqr/traj/master/Setup_n_functions.R"
 source(url)
 ```
 
-```
-## Loading required package: crimCV
-```
-
-```
-## Loading required package: splines
-```
-
-```
-## Loading required package: ggplot2
-```
-
-```
-## Loading required package: cowplot
-```
-
-```
-## 
-## Attaching package: 'cowplot'
-```
-
-```
-## The following object is masked from 'package:ggplot2':
-## 
-##     ggsave
-```
-
-```
-## Loading required package: reshape2
-```
-
-```
-## Loading required package: dplyr
-```
-
-```
-## 
-## Attaching package: 'dplyr'
-```
-
-```
-## The following objects are masked from 'package:stats':
-## 
-##     filter, lag
-```
-
-```
-## The following objects are masked from 'package:base':
-## 
-##     intersect, setdiff, setequal, union
-```
-
-```
-## Loading required package: traj
-```
-
-
 # Prepare the data
-
 
 ```r
 # prepare data
@@ -100,21 +46,29 @@ source(url)
   rownames(df) = test.data$ID
 
 # resulting data set
-  head(df)
+  kable(head(df),format="markdown")
 ```
 
-```
-##          t.1        t.2         t.3        t.4        t.5       t.6
-## 1  707.77330  707.77330 10651.47980  247.44559  247.44559  224.3058
-## 2 3336.66827 4892.62165  8621.54143 5698.54852 5846.25382 6487.2372
-## 3   -0.00001   -0.00001    -0.00001  621.12652 3312.48985 9529.3954
-## 4 1957.65656  763.94261   949.09004 1656.94409 1561.56394  375.1921
-## 5   -0.00001   -0.00001    -0.00001   -0.00001   -0.00001 1822.2672
-## 6  257.52852  257.52852   257.52852  257.52852  257.52852  257.5285
-```
+
+
+|        t.1|        t.2|         t.3|        t.4|        t.5|       t.6|
+|----------:|----------:|-----------:|----------:|----------:|---------:|
+|  707.77330|  707.77330| 10651.47980|  247.44559|  247.44559|  224.3058|
+| 3336.66827| 4892.62165|  8621.54143| 5698.54852| 5846.25382| 6487.2372|
+|   -0.00001|   -0.00001|    -0.00001|  621.12652| 3312.48985| 9529.3954|
+| 1957.65656|  763.94261|   949.09004| 1656.94409| 1561.56394|  375.1921|
+|   -0.00001|   -0.00001|    -0.00001|   -0.00001|   -0.00001| 1822.2672|
+|  257.52852|  257.52852|   257.52852|  257.52852|  257.52852|  257.5285|
 
 
 # GBTM CLUSTERING: crimCV
+
+__GBTM modeling using crimCV:__
+  
+  1. Set a grid to evaluate which model specifications best fit the data
+  2. Choose a model and retrieve data
+  3. Evaluate group mean estimates and averages
+  
 
 ## set the grid of models to evaluate
 
@@ -126,11 +80,6 @@ source(url)
 ```
 
 ## model evaluation
-
-
-    
-## retrireve model evaluation results  
-
 
 ```r
 # retrieve AIC, BIC and CV error for each of the models
@@ -233,7 +182,7 @@ plot.title = "Cost per patient month over the last 6 months before death"
   members.per.cluster = data.frame(table(gbtm.members$cluster))
 ```
 
-## Plot estimated trajectories
+## Plot *estimated* trajectories
 
 
 ```r
@@ -279,17 +228,18 @@ modelled.list$time = modelled.list$time
   colnames(model.spec) = c("Intercept",paste("Polynomial",1:p.set))
   rownames(model.spec) = c(paste("Group",1:k.set))
   
-  model.spec
+  kable(model.spec,format="markdown")
 ```
 
-```
-##         Intercept    Polynomial 1 Polynomial 2 Polynomial 3
-## Group 1 "  2760.21*" "133725.18*" " 13492.78*" " -5078.66 "
-## Group 2 "  4251.83*" " 96114.93*" "-47743.14*" "  2492.84 "
-## Group 3 "   685.78*" " 36158.03*" "-10915.68 " " -1298.57 "
-```
 
-## Plot average group trajectories
+
+|        |Intercept |Polynomial 1 |Polynomial 2 |Polynomial 3 |
+|:-------|:---------|:------------|:------------|:------------|
+|Group 1 |2760.21*  |133725.18*   |13492.78*    |-5078.66     |
+|Group 2 |4251.83*  |96114.93*    |-47743.14*   |2492.84      |
+|Group 3 |685.78*   |36158.03*    |-10915.68    |-1298.57     |
+
+## Plot *average* group trajectories
 
 
 ```r
@@ -312,7 +262,9 @@ modelled.list$time = modelled.list$time
 
 ![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
-## Setup for complex plot
+
+
+## Setup for combined plot
 
 
 ```r
@@ -326,12 +278,7 @@ cluster.names = paste(
 
 # set a y limits to have all sub plots on the same scale?
 set.y.limit = c(0,15000)
-```
 
-## Plot group and individual trajectories
-
-
-```r
 # Group average overview and individual trajectories
 
 pop.average.traj = aggregate(value ~time, long.test.dat, function(x) mean(x,na.rm=T))
@@ -389,10 +336,38 @@ model.plot.modelled.plus.pop.average =
 
 ## k-means of what?
 
-
 ```r
 ?step1measures # info shows the 24 measurements on which k-means is performend
 ```
+
+The 24 measures are:
+
+  1. Range
+  2. Mean-over-time*
+  3. Standard deviation (SD)
+  4. Coefficient of variation (CV)
+  5. Change
+  6. Mean change per unit time
+  7. Change relative to the first score
+  8. Change relative to the mean over time
+  9. Slope of the linear model*
+  10. R^2: Proportion of variance explained by the linear model
+  11. Maximum of the first differences
+  12. SD of the first differences
+  13. SD of the first differences per time unit
+  14. Mean of the absolute first differences*
+  15. Maximum of the absolute first differences
+  16. Ratio of the maximum absolute difference to the mean-over-time
+  17. Ratio of the maximum absolute first difference to the slope
+  18. Ratio of the SD of the first differences to the slope
+  19. Mean of the second differences
+  20. Mean of the absolute second differences
+  21. Maximum of the absolute second differences
+  22. Ration of the maximum absolute second difference to the mean-over-time
+  23. Ratio of the maximum absolute second difference to mean absolute first difference
+  24. Ratio of the mean absolute second difference to the mean absolute first difference
+
+
 
 ## Automated function for plotting results from `step1measures` --> `step2factors` --> `step3clusters`
 
@@ -479,7 +454,7 @@ model.plot.modelled.plus.pop.average =
     }
 ```
 
-## k-means cluster analysis
+## k-24-means cluster analysis 
 
 
 ```r
@@ -595,6 +570,17 @@ plot_grid(plotlist = clusters.within.clusters.plots)
 ```
 
 ![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-17-1.png)<!-- -->
+
+## References
+  
+  Jason D. Nielsen (2013). crimCV: Group-Based Modelling of Longitudinal Data. R package version 0.9.3.
+  https://CRAN.R-project.org/package=crimCV
+  
+  Sylvestre MP, et al. (2006). Classification of patterns of delirium severity scores over time in an elderly population.
+  International Psychogeriatrics, 18(4), 667-680. doi:10.1017/S1041610206003334.
+
+  Leffondree, K. et al. (2004). Statistical measures were proposed for identifying longitudinal patterns of change in
+  quantitative health indicators. Journal of Clinical Epidemiology, 57, 1049-1062. doi : 10.1016/j.jclinepi.2004.02.012.
 
 
 
