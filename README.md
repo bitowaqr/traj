@@ -7,7 +7,7 @@
 
 Step-by-Step tutorial for cluster analysis of longitudinal data using the R-packages crimCV and traj  
 Simply copy-paste the code chunks or look at the code only version: 
-_link_   
+https://raw.githubusercontent.com/bitowaqr/traj/master/raw_code.R 
 
 
 # Setup packages and functions
