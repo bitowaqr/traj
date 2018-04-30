@@ -148,7 +148,7 @@ model.eval.plot =
 model.eval.plot
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 ## Set the parameters for your model of choice
 
@@ -205,7 +205,7 @@ modelled.list$time = modelled.list$time
   model.plot.modelled
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-8-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 ## Retrieve group function terms
 
@@ -260,7 +260,7 @@ modelled.list$time = modelled.list$time
   model.plot.from.data 
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 
 
@@ -327,7 +327,7 @@ model.plot.modelled.plus.pop.average =
   gbtm.mega.plot
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 
 
@@ -472,7 +472,7 @@ cluster.analysis.full = traj.k.mean( fill.data.matrix = test.data[,-1], ID = tes
 ## [1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 ```r
 # results
@@ -498,13 +498,13 @@ cluster.analysis.full$s3
 cluster.analysis.full$mean.cluster.plot
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-15-2.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-15-2.png)<!-- -->
 
 ```r
 cluster.analysis.full$individual.cluster.plot
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-15-3.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-15-3.png)<!-- -->
 
 ## k-means clusters within GBTM clusters
 
@@ -535,7 +535,7 @@ for(k in unique.GBTM.clusters){
 ## [1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 ```
 ## 
@@ -547,7 +547,7 @@ for(k in unique.GBTM.clusters){
 ## [1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-16-2.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-16-2.png)<!-- -->
 
 ```
 ## 
@@ -560,7 +560,7 @@ for(k in unique.GBTM.clusters){
 ## [1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-16-3.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-16-3.png)<!-- -->
 
 ## Overiew plot
 
@@ -569,7 +569,7 @@ for(k in unique.GBTM.clusters){
 plot_grid(plotlist = clusters.within.clusters.plots)
 ```
 
-![](https://github.com/bitowaqr/traj/tree/master/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
 ## References
   
