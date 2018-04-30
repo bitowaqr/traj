@@ -369,7 +369,9 @@ The 24 measures are:
 
 
 
-## Automated function for plotting results from `step1measures` --> `step2factors` --> `step3clusters`
+## Automated function for plotting results 
+
+from `step1measures` --> `step2factors` --> `step3clusters`
 
 
 ```r
