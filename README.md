@@ -79,7 +79,42 @@ __GBTM modeling using crimCV:__
   rcv = T # 3. do you want to run cross validation? T/F
 ```
 
-## model evaluation
+## Fit models
+
+```r
+# Run all models
+  cv.eval.list = list()
+  index = 0
+  for(k in n.cluster)
+  {
+    sub.index = 0
+    index = index + 1
+        cv.eval.list[[index]] = list()
+        names(cv.eval.list)[k] = paste("Groups",k,sep="_")
+        for(p in p.poly)
+          {
+          print(cat("\n Running models for", n.cluster[k], "Groups, and",p.poly[p],"polynomials..."))
+          cat("\n running k=",k,"poly=",p," \n")
+          sub.index = sub.index + 1
+          temp = crimCV(df,
+                        ng = k,
+                        dpolyp = p,
+                        rcv = rcv,     
+                        model = "ZIP"
+                        )
+      
+          cv.eval.list[[index]][[sub.index]] = temp
+      
+          names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p,sep="_")
+          }
+  }
+  
+
+```
+    
+
+## Model evaluation
+
 
 ```r
 # retrieve AIC, BIC and CV error for each of the models
