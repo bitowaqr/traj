@@ -116,7 +116,7 @@
             crimCV.model.temp = crimCV(Dat = as.matrix(data[,-1]),
                                         ng = k,
                                         dpolyp = p,
-                                        dpolyl = poly,
+                                        dpolyl = p,
                                         rcv = run.loocv,     
                                         model = method,
                                         init = init.proc,
