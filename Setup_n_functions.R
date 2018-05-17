@@ -1,6 +1,6 @@
 # setup
 # load and install libraries
-  required_packages<-c("crimCV","ggplot2","cowplot","reshape2","dplyr","traj","cowplot","knitr") 
+  required_packages<-c("crimCV","foreign","ggplot2","cowplot","reshape2","dplyr","traj","cowplot","knitr") 
 
   pft_packages <- function(package){
       for(i in 1:length(package)){
