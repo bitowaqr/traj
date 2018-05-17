@@ -10,8 +10,160 @@
   
   pft_packages(required_packages)
 
-# load some functions
-  
+# some convenient functions
+
+
+# Load data
+    load.traj.data = function(){
+
+        cat("\n \n Select your dta or csv data file \n")
+        cat("Works with data organized like this (with or withour ID) \n \n")
+        print(head(sample_traj_data)[1:3,1:4])
+
+        path = file.choose(file.path())
+
+        ending = substr(path,nchar(path)-2,nchar(path))
+        if(ending == "csv"){
+          dat = read.csv(path)
+        }
+        if(ending == "dta"){
+          dat = read.dta(path)
+        }
+
+        # Set ID column
+        cat("\n ")
+        ID.index = readline(prompt="Is the first column an ID variable? y/n  " )
+        if(ID.index %in% c("yes","y","Yes","Y","N","n","No","no")){
+        if(ID.index == "yes" |ID.index == "Yes" | ID.index == "y" | ID.index == "Y"){
+          ID = dat[,1]
+          dat =dat[,-1]
+          }
+
+        if(ID.index == "no" | ID.index == "No" | ID.index == "n" | ID.index == "N"){
+          cat("\n ID variable created")
+          ID = 1:length(dat[,1])
+        }
+          } else{stop("\n Invalid input <-  Types y or n")}
+
+        # Set time points
+        time.points = readline(prompt="How many observations per case?  " )
+        time.points = as.numeric(time.points)
+        if(time.points!=round(time.points)) stop(" Time points must be an integer")
+        if(time.points > length(dat)) stop(" Data does not have enough columns")
+        mat = dat[,1:time.points]
+
+        # make data set
+        traj_data  = cbind(ID,mat)
+        names(traj_data) = c("ID",paste("t",1:time.points))
+        cat("\n Data set with dimensions: cases=",dim(traj_data)[1],"; timepoints=",dim(traj_data)[2]-1," created!",sep="")
+
+        # missing data must be replaced with negative values
+        na.sum = sum(is.na(traj_data))
+        if(na.sum >0){
+          traj_data[is.na(traj_data)] = -0.001
+          cat("\n",na.sum,"missing values are being replaces with negative values!")
+        }
+
+        return(traj_data)
+      }  
+
+
+# Plot model fit stats
+     fit_eval = function(eval.stats.data = eval.stats){
+        eval.stats.data$p = as.integer(eval.stats.data$p)
+        types = unique(eval.stats.data$type)
+        eval.data.list = list(); eval.plot.list = list()
+        for(i in types){
+          eval.data.list[[i]] = eval.stats.data[which(eval.stats.data$type==i),]
+          eval.plot.list[[i]] = ggplot(eval.data.list[[i]]) +   
+          geom_line(aes(x=p,y=value,col=as.factor(k))) +
+          #geom_point(aes(x=x,y=value,col=as.factor(cluster))) +
+          geom_text(aes(x=p,y=value,col=as.factor(k),label=k),size=5) +
+          xlab("Polynomial") +
+          ylab(paste(i)) +
+            scale_color_manual(name="Number of groups",values=unique(eval.data.list[[i]]$k)) +
+            scale_x_continuous(breaks = c(min(eval.data.list[[i]]$p),max(eval.data.list[[i]]$p)))
+          }
+        return(list(eval.data.list = eval.data.list,
+                    eval.plot.list = eval.plot.list))
+        }
+# fit multiple crimCV GBTM models over k and p grid
+    fit.gbtm = function(data = traj_data,
+                        evaluate.k.groups = c(2,3),
+                        evaluate.p.polynomials = c(1,3),
+                        run.loocv = F,
+                        method = "ZIP",
+                        init.proc = 20,
+                        Risk.set = NULL,
+                        ...
+                        ){
+
+      cv.eval.list = list()
+      eval.stats = data.frame(k=NA,p=NA,value=NA,type=NA)
+      index = 0
+      for(k in evaluate.k.groups){
+        for(p in evaluate.p.polynomials){
+
+          index = index + 1
+          cv.eval.list[[index]] = list()
+          attributes(cv.eval.list[[index]])$Groups = k
+          attributes(cv.eval.list[[index]])$Poly = p
+          names(cv.eval.list)[index] = paste("k",k,"p",p,sep="")
+
+          cat("\n Fitting GBTM for k=", k, " and p=",p,"... \n",sep="")
+
+          tryCatch({
+            crimCV.model.temp = crimCV(Dat = as.matrix(data[,-1]),
+                                        ng = k,
+                                        dpolyp = p,
+                                        dpolyl = poly,
+                                        rcv = run.loocv,     
+                                        model = method,
+                                        init = init.proc,
+                                        Risk = Risk.set
+                                       )
+            cv.eval.list[[index]] = crimCV.model.temp
+
+            tryCatch({
+
+              AIC.temp = crimCV.model.temp$AIC
+              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=AIC.temp,type="AIC"))
+
+              BIC.temp = crimCV.model.temp$BIC
+              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=BIC.temp,type="BIC"))
+
+              if(exists("crimCV.model.temp$cv")){
+                RCV.temp = crimCV.model.temp$cv  
+                eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
+              }
+
+
+
+            }, error = function(e){cat("Something went wrong with eval. stats. of k=",k," p=",p," - Continue")}
+            )
+          }, error = function(e){cat("Something went wrong while fitting k=",k," p=",p," - Continue")}
+            )
+
+        }
+      }
+
+      eval.stats = eval.stats[-1,]
+
+      tryCatch({eval.stats = fit_eval(eval.stats.data = eval.stats)}, error = function(e){cat("")})
+
+
+      return(list(cv.eval.list = cv.eval.list,
+                  eval.stats = eval.stats))
+      }
+
+
+
+
+
+
+
+
+# load adjusted crimCV functions
   
   # crimCV IMPROVEMENTS:
     # update plot.zip --> makes better plots!
@@ -890,7 +1042,7 @@
       }
     }
 
-
+# Load sample data
 sample_traj_data = read.csv(text='"ID","t 1","t 2","t 3","t 4","t 5","t 6"
                               1,707.773301494225,707.773301494225,10651.4798046765,247.445586779939,247.445586779939,224.305830021114
                               2,3336.66826966042,4892.62165068284,8621.54142701205,5698.5485159355,5846.25381703163,6487.2371862624
