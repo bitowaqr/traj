@@ -132,9 +132,9 @@
               BIC.temp = crimCV.model.temp$BIC
               eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=BIC.temp,type="BIC"))
 
-              if(exists("crimCV.model.temp$cv")){
-                RCV.temp = crimCV.model.temp$cv  
-                eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
+              if(with(crimCV.model.temp,exists("cv"))){
+              RCV.temp = crimCV.model.temp$cv  
+              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
               }
 
 
