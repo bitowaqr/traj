@@ -13,59 +13,66 @@
 # some convenient functions
 
 
-# Load data
-    load.traj.data = function(){
-
-        cat("\n \n Select your dta or csv data file \n")
-        cat("Works with data organized like this (with or withour ID) \n \n")
-        print(head(sample_traj_data)[1:3,1:4])
-
-        path = file.choose(file.path())
-
-        ending = substr(path,nchar(path)-2,nchar(path))
-        if(ending == "csv"){
-          dat = read.csv(path)
-        }
-        if(ending == "dta"){
-          dat = read.dta(path)
-        }
-
-        # Set ID column
-        cat("\n ")
-        ID.index = readline(prompt="Is the first column an ID variable? y/n  " )
-        if(ID.index %in% c("yes","y","Yes","Y","N","n","No","no")){
-        if(ID.index == "yes" |ID.index == "Yes" | ID.index == "y" | ID.index == "Y"){
-          ID = dat[,1]
-          dat =dat[,-1]
-          }
-
-        if(ID.index == "no" | ID.index == "No" | ID.index == "n" | ID.index == "N"){
-          cat("\n ID variable created")
-          ID = 1:length(dat[,1])
-        }
-          } else{stop("\n Invalid input <-  Types y or n")}
-
-        # Set time points
-        time.points = readline(prompt="How many observations per case?  " )
-        time.points = as.numeric(time.points)
-        if(time.points!=round(time.points)) stop(" Time points must be an integer")
-        if(time.points > length(dat)) stop(" Data does not have enough columns")
-        mat = dat[,1:time.points]
-
-        # make data set
-        traj_data  = cbind(ID,mat)
-        names(traj_data) = c("ID",paste("t",1:time.points))
-        cat("\n Data set with dimensions: cases=",dim(traj_data)[1],"; timepoints=",dim(traj_data)[2]-1," created!",sep="")
-
-        # missing data must be replaced with negative values
-        na.sum = sum(is.na(traj_data))
-        if(na.sum >0){
-          traj_data[is.na(traj_data)] = -0.001
-          cat("\n",na.sum,"missing values are being replaces with negative values!")
-        }
-
-        return(traj_data)
-      }  
+load.traj.data = function(ID.index = NULL,
+                            time.points = NULL,
+                            path = NULL){
+    
+    if(is.null(path)) {
+      cat("\n \n Select your dta or csv data file \n")
+      cat("Works with data organized like this (with or withour ID) \n \n")
+      print(head(sample_traj_data)[1:3,1:4])
+      
+      path = file.choose(file.path())
+    }
+    
+    ending = substr(path,nchar(path)-2,nchar(path))
+    if(ending == "csv"){
+      dat = read.csv(path)
+    }
+    if(ending == "dta"){
+      dat = read.dta(path)
+    }
+    
+    # Set ID column
+    cat("\n ")
+    if(is.null(ID.index)){
+    ID.index = readline(prompt="Is the first column an ID variable? y/n  " )}
+    if(ID.index %in% c("yes","y","Yes","Y","N","n","No","no")){
+      if(ID.index == "yes" |ID.index == "Yes" | ID.index == "y" | ID.index == "Y"){
+        ID = dat[,1]
+        dat =dat[,-1]
+      }
+      
+      if(ID.index == "no" | ID.index == "No" | ID.index == "n" | ID.index == "N"){
+        cat("\n ID variable created")
+        ID = 1:length(dat[,1])
+      }
+    } else{stop("\n Invalid input <-  Types y or n")}
+    
+    # Set time points
+    if(is.null(time.points)){
+    time.points = readline(prompt="How many observations per case?  " )}
+    time.points = as.numeric(time.points)
+    if(time.points!=round(time.points)) stop(" Time points must be an integer")
+    if(time.points > length(dat)) stop(" Data does not have enough columns")
+    mat = dat[,1:time.points]
+    
+    # make data set
+    traj_data  = cbind(ID,mat)
+    names(traj_data) = c("ID",paste("t",1:time.points))
+    cat("\n Data set with dimensions: cases=",dim(traj_data)[1],"; timepoints=",dim(traj_data)[2]-1," created!",sep="")
+    
+    # missing data must be replaced with negative values
+    na.sum = sum(is.na(traj_data))
+    if(na.sum >0){
+      traj_data[is.na(traj_data)] = -0.001
+      cat("\n",na.sum,"missing values are being replaces with negative values!")
+    }
+    
+    return(traj_data)
+  }  
+  
+  
 
 
 # Plot model fit stats
@@ -156,7 +163,19 @@
                   eval.stats = eval.stats))
       }
 
-
+  # select your model
+set.model = function(models.list = fitted.gbtm$cv.eval.list,
+                       set.k = NULL,
+                       set.p = NULL){
+    cat("\n Select the model you want to further evaluate:")
+    if(is.null(set.k)) set.k = readline(prompt="How many groups?  " )
+    if(is.null(set.p)) set.p = readline(prompt="What degree of polynomial?  " )
+    set.available = grepl(paste("k",set.k,"p",set.p,sep=""),names(models.list))
+    if(sum(set.available) == 0 ) stop(" This combination of groups and polynomials is not available.")
+    select.model = models.list[set.available]
+    return(select.model)
+  }
+  
 
 
 
