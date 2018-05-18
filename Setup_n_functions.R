@@ -178,7 +178,59 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
     return(select.model)
   }
   
+# get model terms 
+get.model.terms = function(model = select.model, 
+                           data = traj_data,
+                           membership = deter.membership){
   
+  traj_data_long = melt(data,id.vars="ID")
+  names(traj_data_long)  = c("ID","time","value")
+  traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
+  traj_data_long = merge(traj_data_long,deter.membership,"ID")
+  traj_data_long$group = as.factor(traj_data_long$group)
+  
+  p.poly = as.numeric(attributes(model)$p)
+  k.group = as.numeric(attributes(model)$k)
+  
+  polynomial.model.results = summary(lm(value ~ -1+poly(time,p.poly):group+group, traj_data_long))
+  model.spec = round(polynomial.model.results$coefficients[,1],2)
+  sig.model.specification = ifelse(polynomial.model.results$coefficients[,4]<0.05,"*"," ")
+  model.spec = paste(model.spec,sig.model.specification,sep="")
+  model.spec = formatC(model.spec)
+  model.spec = matrix(data=model.spec, ncol=p.poly+1)
+      
+  colnames(model.spec) = c("Intercept",paste("Polynomial",1:p.poly))
+  rownames(model.spec) = c(paste("Group",1:k.group))
+  return(model.spec)
+  }
+
+
+
+# plot mean per group
+  plot.mean.per.group = function(model = select.model, 
+                               data = traj_data,
+                               membership = deter.membership){
+  traj_data_long = melt(data,id.vars="ID")
+  names(traj_data_long)  = c("ID","time","value")
+  traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
+  traj_data_long = merge(traj_data_long,deter.membership,"ID")
+  traj_data_long$group = as.factor(traj_data_long$group)
+  
+  p.poly = as.numeric(attributes(model)$p)
+  k.group = as.numeric(attributes(model)$k)
+  
+  traj_data_long$value[traj_data_long$value<0] = NA
+  long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
+  
+  
+  model.plot.from.data = ggplot(long.dat.means) +
+    geom_line(aes(x=time,y=value,col=group)) +
+    scale_color_manual(lab=paste("Group ",deter.membership.table$group," n=",deter.membership.table$n_members," (",round(deter.membership.table$n_members/sum(deter.membership.table$n_members),2)*100,"%)",sep=""),
+                       values=as.numeric(as.character(deter.membership.table$group))+1,
+                       name="Average group trajectories") +
+    theme_minimal()
+  return(model.plot.from.data)
+}
 
 
 
