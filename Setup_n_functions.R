@@ -59,7 +59,7 @@ load.traj.data = function(ID.index = NULL,
     
     # make data set
     traj_data  = cbind(ID,mat)
-    names(traj_data) = c("ID",paste("t",1:time.points))
+    names(traj_data) = c("ID",paste("t",1:time.points,sep=""))
     cat("\n Data set with dimensions: cases=",dim(traj_data)[1],"; timepoints=",dim(traj_data)[2]-1," created!",sep="")
     
     # missing data must be replaced with negative values
