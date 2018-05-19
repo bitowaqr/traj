@@ -181,12 +181,12 @@ fit.gbtm = function(data = traj_data,
     get.model.terms = function(model = select.model, 
                                data = traj_data){
       
-      membership = deter.membership = data.frame(ID = data$ID,
+      membership = data.frame(ID = data$ID,
                                                  group = apply(summary(model),1,function(x)which(x == max(x))))
       traj_data_long = melt(data,id.vars="ID")
       names(traj_data_long)  = c("ID","time","value")
       traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
-      traj_data_long = merge(traj_data_long,deter.membership,"ID")
+      traj_data_long = merge(traj_data_long,membership,"ID")
       traj_data_long$group = as.factor(traj_data_long$group)
       traj_data_long$value[traj_data_long$value<0] = NA
       
