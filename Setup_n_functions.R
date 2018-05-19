@@ -300,7 +300,7 @@ plot.gbtm.groups = function(data = traj_data,
     traj_data_long = melt(data,id.vars="ID")
     names(traj_data_long)  = c("ID","time","value")
     traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
-    traj_data_long = merge(traj_data_long,deter.membership,"ID")
+    traj_data_long = merge(traj_data_long,membership,"ID")
     traj_data_long$group = as.factor(traj_data_long$group)
     
     # population average
