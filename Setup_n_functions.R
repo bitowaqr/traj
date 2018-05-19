@@ -201,8 +201,8 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
       traj_data_long$group = as.factor(traj_data_long$group)
       traj_data_long$value[traj_data_long$value<0] = NA
       
-      p.poly = as.numeric(attributes(model)$p)
-      k.group = as.numeric(attributes(model)$k)
+      p.poly = dim(model$beta)[1]-1
+      k.group = dim(model$beta)[2]
       
       model.spec = matrix(data=NA, ncol=p.poly+1,nrow=k.group)
       colnames(model.spec) = c("Intercept",paste("Polynomial",1:p.poly))
