@@ -196,15 +196,19 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
       p.poly = as.numeric(attributes(model)$p)
       k.group = as.numeric(attributes(model)$k)
       
-      polynomial.model.results = summary(lm(value ~ -1+poly(time,p.poly):group+group, traj_data_long))
-      model.spec = round(polynomial.model.results$coefficients[,1],2)
-      sig.model.specification = ifelse(polynomial.model.results$coefficients[,4]<0.05,"*"," ")
-      model.spec = paste(model.spec,sig.model.specification,sep="")
-      model.spec = formatC(model.spec)
-      model.spec = matrix(data=model.spec, ncol=p.poly+1)
-      
+      model.spec = matrix(data=NA, ncol=p.poly+1,nrow=k.group)
       colnames(model.spec) = c("Intercept",paste("Polynomial",1:p.poly))
       rownames(model.spec) = c(paste("Group",1:k.group))
+      
+      for(k in 1:k.group){
+        temp = summary(lm(value ~ 1+poly(time,p.poly,raw=T), traj_data_long[traj_data_long$group==k,]))
+        temp.coef = round(temp$coefficients[,1],2)
+        significance = ifelse(temp$coefficients[,4]<0.05,"*"," ")
+        significance.coef = paste(temp.coef,significance,sep="")
+        temp.input = formatC(significance.coef)
+        model.spec[k,] = temp.input
+      }
+     
       return(model.spec)
     }
                                                              
