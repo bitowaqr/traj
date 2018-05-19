@@ -177,12 +177,14 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
     attributes(select.model)$p = set.p
     return(select.model)
   }
-  
-# get model terms 
+ 
+
+# get model terms from data
 get.model.terms = function(model = select.model, 
-                           data = traj_data,
-                           membership = deter.membership){
+                             data = traj_data){
   
+    membership = deter.membership = data.frame(ID = data$ID,
+                                               group = apply(summary(model),1,function(x)which(x == max(x))))
   traj_data_long = melt(data,id.vars="ID")
   names(traj_data_long)  = c("ID","time","value")
   traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
@@ -203,13 +205,34 @@ get.model.terms = function(model = select.model,
   rownames(model.spec) = c(paste("Group",1:k.group))
   return(model.spec)
   }
+                                                             
+                                                             
+ # retrieve probabilistic and deterministic group membership
+    gbtm.members = function(model = select.model,
+                            data = traj_data){
+      # probabilistic membership
+      prob.membership = summary(model)
+      # deterministic membership
+      deter.membership = data.frame(ID = data$ID,
+                                    group = apply(prob.membership,1,function(x)which(x == max(x))))
+      # Group membership frequency table
+      deter.membership.table = as.data.frame(table(deter.membership$group))
+      names(deter.membership.table) = c("group","n_members")
+      member_list = list(prob.membership = prob.membership,
+                         deter.membership = deter.membership,
+                         deter.membership.table = deter.membership.table)
+      return(member_list)
+    }
 
-
-
-# plot mean per group
-  plot.mean.per.group = function(model = select.model, 
+# plot observed average traj per group
+plot.mean.per.group = function(model = select.model, 
                                data = traj_data,
-                               membership = deter.membership){
+                               y.axis.label = "Y-axis label",
+                               x.axis.label = "X-axis label",
+                               plot.title = "Plot title"){
+  membership = deter.membership = data.frame(ID = data$ID,
+                                             group = apply(summary(model),1,function(x)which(x == max(x))))
+  
   traj_data_long = melt(data,id.vars="ID")
   names(traj_data_long)  = c("ID","time","value")
   traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
@@ -231,11 +254,141 @@ get.model.terms = function(model = select.model,
     theme_minimal()
   return(model.plot.from.data)
 }
+                             
+# plot estimated average traj per group
+plot.gbtm.model = function(model = select.model, 
+                           y.axis.label = "Y-axis label",
+                           x.axis.label = "X-axis label",
+                           plot.title = "Plot title"){
+  
+  membershiptable = as.data.frame(table(data.frame(
+    group = apply(summary(model),1,function(x)which(x == max(x))))))
+  
+  modeled.data.plot = 
+    plot(model,size=1,plot=T) + 
+    scale_y_continuous(name=y.axis.label) +
+    scale_x_continuous(name=x.axis.label) +
+    ggtitle(plot.title) +
+    scale_color_manual(lab=paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep=""),
+                       values=as.numeric(as.character(membershiptable[,1]))+1,
+                       name="Estimated group trajectories") +
+    theme_minimal()
+  return(modeled.data.plot)  
+}
 
+                  
+# plot group traj overview and individual groups
+                             
+plot.gbtm.groups = function(data = traj_data,
+                             model = select.model,
+                             set.y.limit = NULL,  # c(0,40)
+                             individual.group.names = NULL, # give names
+                             plot.total = T,
+                             plot_overview = T,
+                              n_row = NULL){
+  membership = deter.membership = data.frame(ID = data$ID,
+                                             group = apply(summary(model),
+                                                           1,
+                                                           function(x) which(x == max(x))))
+  
+  # modeled data
+  modelled.list = plot(model,size=1,plot=F) 
+  
+  # long data
+  traj_data_long = melt(data,id.vars="ID")
+  names(traj_data_long)  = c("ID","time","value")
+  traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
+  traj_data_long = merge(traj_data_long,deter.membership,"ID")
+  traj_data_long$group = as.factor(traj_data_long$group)
+  
+  # population average
+  pop.average.traj = aggregate(value ~time, traj_data_long, function(x) mean(x,na.rm=T))
+  
+  #
+  p.poly = as.numeric(attributes(model)$p)
+  k.group = as.numeric(attributes(model)$k)
+  
+  traj_data_long$value[traj_data_long$value<0] = NA
+  long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
+  
+  ######################## HALTED ############################model.plot.modelled.plus.pop.average = 
+  
+  
+  model.plot.modelled.plus.pop.average =  
+    ggplot() +
+    geom_line(data=modelled.list,aes(x=time,y=value,col=cluster,linetype="Estimated")) +
+    scale_y_continuous(name=y.axis.label) +
+    scale_x_continuous(name=x.axis.label) +
+    ggtitle(plot.title) +
+      scale_color_manual(lab=c(paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep="")),
+                         values=c(as.numeric(as.character(membershiptable[,1]))+1,1),
+                         name="Estimated group trajectories") +
+    scale_linetype_manual(lab=c("Estimated"),values = c(1), name="")+
+    guides(color = guide_legend(order = 1),
+           linetype = guide_legend(order=0)) +
+    theme_minimal()
+  
+  
+  if(plot.total == T) {
+    model.plot.modelled.plus.pop.average = 
+      model.plot.modelled.plus.pop.average + 
+          geom_line(data=pop.average.traj,aes(x=time,y=value,col="Total",linetype="Average")) +
+      scale_color_manual(lab=c(paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep=""),
+                               paste("Total n=",sum(membershiptable[,2])," (100%)",sep="")),
+                         values=c(as.numeric(as.character(membershiptable[,1]))+1,1),
+                         name="Estimated group trajectories") +
+      scale_linetype_manual(lab=c("Average","Estimated"),values = c(2,1), name="")}
+  
+  
+  if(is.null(individual.group.names)) individual.group.names = paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep="")
+  
+  individual.plot.list = list()
+  times.ex = unique(traj_data_long$time)
+  for(i in 1:length(unique(traj_data_long$group))){
+    individual.plot.list[[i]] = 
+      ggplot() +
+      theme_minimal() +
+      geom_line(data=traj_data_long[traj_data_long$group==i,],
+                aes(x=time,y=value,group=ID,linetype="Estimate"),col=i+1,alpha=0.3,size=0.4) +
+      geom_line(data=long.dat.means[long.dat.means$group==i,],
+                aes(x=time,y=value,linetype="Average"),col=i+1,size=1) +
+      geom_line(data=modelled.list[modelled.list$cluster==i,],
+                aes(x=time,y=value,col=cluster,linetype="Estimate"),col=i+1,size=1) +
+      scale_linetype_manual(lab=c("Average","Estimated"),values = c(2,1), name="") +
+      theme(legend.position = "none") +
+      ylab("") +
+      xlab("") +
+      ggtitle(individual.group.names[i]) +
+      coord_cartesian(ylim=set.y.limit) 
+  }
+  # individual.plot.list[[length(individual.plot.list)+1]] = get.legend
+  
+  
+  if(is.null(n_row)) n_row = round(length(membershiptable[,1])/2,0)
+  
+  if(plot_overview == T){
+  p1 = 
+    plot_grid(model.plot.modelled.plus.pop.average+
+                coord_cartesian(ylim=set.y.limit),
+              plot_grid(plotlist=individual.plot.list,
+                        nrow=n_row),
+              ncol=1,rel_heights = c(2,3))
+  } else {
+    p1 = 
+                plot_grid(plotlist=individual.plot.list,
+                          nrow=n_row)
+  }
+  return(p1)
+}
 
-
-
-
+                             
+                             
+                             
+                             
+                             
+                             
+                             
+                             
 
 # load adjusted crimCV functions
   
