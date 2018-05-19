@@ -263,7 +263,7 @@ fit.gbtm = function(data = traj_data,
           
         model.plot.from.data = 
           model.plot.from.data +
-          geom_line(data = pop.average.traj, aes(x=time,y=value,col="Total")) +
+          geom_line(data = long.dat.means, aes(x=time,y=value,col="Total")) +
           scale_color_manual(lab=c(paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
                                    paste("Total n=",sum(n_members$n_members)," (100%)")),
                              values=c(as.numeric(as.character(n_members$group))+1,1),
