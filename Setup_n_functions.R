@@ -183,7 +183,7 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
     if(is.null(set.p)) set.p = readline(prompt="What degree of polynomial?  " )
     set.available = grepl(paste("k",set.k,"p",set.p,sep=""),names(models.list))
     if(sum(set.available) == 0 ) stop(" This combination of groups and polynomials is not available.")
-    select.model = models.list[set.available]
+    select.model = models.list[set.available][[1]]
     return(select.model)
   }
 
