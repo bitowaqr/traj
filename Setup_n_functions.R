@@ -225,56 +225,35 @@ get.model.terms = function(model = select.model,
     }
 
 # plot observed average traj per group
-plot.mean.per.group = function(model = select.model, 
-                               data = traj_data,
-                               y.axis.label = "Y-axis label",
-                               x.axis.label = "X-axis label",
-                               plot.title = "Plot title"){
-  membership = deter.membership = data.frame(ID = data$ID,
-                                             group = apply(summary(model),1,function(x)which(x == max(x))))
-  
-  traj_data_long = melt(data,id.vars="ID")
-  names(traj_data_long)  = c("ID","time","value")
-  traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
-  traj_data_long = merge(traj_data_long,deter.membership,"ID")
-  traj_data_long$group = as.factor(traj_data_long$group)
-  
-  p.poly = as.numeric(attributes(model)$p)
-  k.group = as.numeric(attributes(model)$k)
-  
-  traj_data_long$value[traj_data_long$value<0] = NA
-  long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
-  
-  
-  model.plot.from.data = ggplot(long.dat.means) +
-    geom_line(aes(x=time,y=value,col=group)) +
-    scale_color_manual(lab=paste("Group ",deter.membership.table$group," n=",deter.membership.table$n_members," (",round(deter.membership.table$n_members/sum(deter.membership.table$n_members),2)*100,"%)",sep=""),
-                       values=as.numeric(as.character(deter.membership.table$group))+1,
-                       name="Average group trajectories") +
-    theme_minimal()
-  return(model.plot.from.data)
-}
-                             
-# plot estimated average traj per group
-plot.gbtm.model = function(model = select.model, 
-                           y.axis.label = "Y-axis label",
-                           x.axis.label = "X-axis label",
-                           plot.title = "Plot title"){
-  
-  membershiptable = as.data.frame(table(data.frame(
-    group = apply(summary(model),1,function(x)which(x == max(x))))))
-  
-  modeled.data.plot = 
-    plot(model,size=1,plot=T) + 
-    scale_y_continuous(name=y.axis.label) +
-    scale_x_continuous(name=x.axis.label) +
-    ggtitle(plot.title) +
-    scale_color_manual(lab=paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep=""),
-                       values=as.numeric(as.character(membershiptable[,1]))+1,
-                       name="Estimated group trajectories") +
-    theme_minimal()
-  return(modeled.data.plot)  
-}
+plot.mean.per.group=function(model = select.model, 
+             data = traj_data,
+             y.axis.label = "Y-axis label",
+             x.axis.label = "X-axis label",
+             plot.title = "Plot title"){
+      membership = deter.membership = data.frame(ID = data$ID,
+                                                 group = apply(summary(model),1,function(x)which(x == max(x))))
+      
+      traj_data_long = melt(data,id.vars="ID")
+      names(traj_data_long)  = c("ID","time","value")
+      traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
+      traj_data_long = merge(traj_data_long,deter.membership,"ID")
+      traj_data_long$group = as.factor(traj_data_long$group)
+      
+      p.poly = as.numeric(attributes(model)$p)
+      k.group = as.numeric(attributes(model)$k)
+      
+      traj_data_long$value[traj_data_long$value<0] = NA
+      long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
+      
+      
+      model.plot.from.data = ggplot(long.dat.means) +
+        geom_line(aes(x=time,y=value,col=group)) +
+        scale_color_manual(lab=paste("Group ",membership$group," n=",membership$n_members," (",round(membership$n_members/sum(membership$n_members),2)*100,"%)",sep=""),
+                           values=as.numeric(as.character(membership$group))+1,
+                           name="Average group trajectories") +
+        theme_minimal()
+      return(model.plot.from.data)
+    }
 
                   
 # plot group traj overview and individual groups
