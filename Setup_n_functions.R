@@ -96,92 +96,84 @@ load.traj.data = function(ID.index = NULL,
         }
 # fit multiple crimCV GBTM models over k and p grid
 fit.gbtm = function(data = traj_data,
-                    evaluate.k.groups = NULL,
-                     evaluate.p.polynomials = NULL,
-                     run.loocv = NULL,
-                     method = NULL,
-                     init.proc = 20,
-                     Risk.set = NULL,
-                     ...){
-  
-  if(is.null(evaluate.k.groups)) evaluate.k.groups = as.numeric(readline(prompt="Which number of groups to evaluate? For multiple, type: c(1,2,...,k)  " ))
-  if(is.null(evaluate.p.polynomials)) evaluate.p.polynomials = as.numeric( readline(prompt="Which degrees of polynomials to evaluate? For multiple, type: c(1,2,...,p)  " ))
-  if(is.null(run.loocv)) run.loocv = as.logical(readline(prompt="Run leave-one-out cross-validation? Type True or False  " ))
-  if(is.null(method)) method = readline(prompt="Which method to use - type 'ZIP' or 'ZIPt'?  " )
-
-
-  cv.eval.list = list()
-  eval.stats = data.frame(k=NA,p=NA,value=NA,type=NA)
-  index = 0
-  for(k in evaluate.k.groups){
-    for(p in evaluate.p.polynomials){
-      
-      index = index + 1
-      cv.eval.list[[index]] = list()
-      attributes(cv.eval.list[[index]])$Groups = k
-      attributes(cv.eval.list[[index]])$Poly = p
-      names(cv.eval.list)[index] = paste("k",k,"p",p,sep="")
-      
-      cat("\n Fitting GBTM for k=", k, " and p=",p,"... \n",sep="")
-      
-      tryCatch({
-        crimCV.model.temp = crimCV(Dat = as.matrix(data[,-1]),
-                                   ng = k,
-                                   dpolyp = p,
-                                   dpolyl = p,
-                                   rcv = run.loocv,     
-                                   model = method,
-                                   init = init.proc,
-                                   Risk = Risk.set
-        )
-        cv.eval.list[[index]] = crimCV.model.temp
+           evaluate.k.groups = NULL,
+           evaluate.p.polynomials = NULL,
+           run.loocv = NULL,
+           method = NULL,
+           init.proc = 20,
+           Risk.set = NULL,
+           ...){
+    
+    if(is.null(evaluate.k.groups)) {
+      evaluate.k.groups = readline(prompt="Which number of groups to evaluate? For multiple, type: 1,2,...,k  " )
+      evaluate.k.groups <- as.integer(strsplit(evaluate.k.groups, ",")[[1]])
+      }
+    if(is.null(evaluate.p.polynomials)){ 
+      evaluate.p.polynomials =  readline(prompt="Which degrees of polynomials to evaluate? For multiple, type: 1,2,...,p  " )
+      evaluate.p.polynomials <- as.integer(strsplit(evaluate.p.polynomials, ",")[[1]])
+    }
+    if(is.null(run.loocv)) run.loocv = as.logical(readline(prompt="Run leave-one-out cross-validation? Type True or False  " ))
+    if(is.null(method)) method = readline(prompt="Which method to use - type 'ZIP' or 'ZIPt'?  " )
+    
+    
+    cv.eval.list = list()
+    eval.stats = data.frame(k=NA,p=NA,value=NA,type=NA)
+    index = 0
+    for(k in evaluate.k.groups){
+      for(p in evaluate.p.polynomials){
+        
+        index = index + 1
+        cv.eval.list[[index]] = list()
+        attributes(cv.eval.list[[index]])$Groups = k
+        attributes(cv.eval.list[[index]])$Poly = p
+        names(cv.eval.list)[index] = paste("k",k,"p",p,sep="")
+        
+        cat("\n Fitting GBTM for k=", k, " and p=",p,"... \n",sep="")
         
         tryCatch({
+          crimCV.model.temp = crimCV(Dat = as.matrix(data[,-1]),
+                                     ng = k,
+                                     dpolyp = p,
+                                     dpolyl = p,
+                                     rcv = run.loocv,     
+                                     model = method,
+                                     init = init.proc,
+                                     Risk = Risk.set
+          )
+          cv.eval.list[[index]] = crimCV.model.temp
           
-          AIC.temp = crimCV.model.temp$AIC
-          eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=AIC.temp,type="AIC"))
-          
-          BIC.temp = crimCV.model.temp$BIC
-          eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=BIC.temp,type="BIC"))
-          
-          if(with(crimCV.model.temp,exists("cv"))){
-            RCV.temp = crimCV.model.temp$cv  
-            eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
-          }
-          
-          
-          
-        }, error = function(e){cat("Something went wrong with eval. stats. of k=",k," p=",p," - Continue")}
+          tryCatch({
+            
+            AIC.temp = crimCV.model.temp$AIC
+            eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=AIC.temp,type="AIC"))
+            
+            BIC.temp = crimCV.model.temp$BIC
+            eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=BIC.temp,type="BIC"))
+            
+            if(with(crimCV.model.temp,exists("cv"))){
+              RCV.temp = crimCV.model.temp$cv  
+              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
+            }
+            
+            
+            
+          }, error = function(e){cat("Something went wrong with eval. stats. of k=",k," p=",p," - Continue")}
+          )
+        }, error = function(e){cat("Something went wrong while fitting k=",k," p=",p," - Continue")}
         )
-      }, error = function(e){cat("Something went wrong while fitting k=",k," p=",p," - Continue")}
-      )
-      
+        
+      }
     }
+    
+    eval.stats = eval.stats[-1,]
+    
+    tryCatch({eval.stats = fit_eval(eval.stats.data = eval.stats)}, error = function(e){cat("")})
+    
+    
+    return(list(cv.eval.list = cv.eval.list,
+                eval.stats = eval.stats))
   }
   
-  eval.stats = eval.stats[-1,]
-  
-  tryCatch({eval.stats = fit_eval(eval.stats.data = eval.stats)}, error = function(e){cat("")})
-  
-  
-  return(list(cv.eval.list = cv.eval.list,
-              eval.stats = eval.stats))
-}
-
-  # select your model
-set.model = function(models.list = fitted.gbtm$cv.eval.list,
-                       set.k = NULL,
-                       set.p = NULL){
-    cat("\n Select the model you want to further evaluate:")
-    if(is.null(set.k)) set.k = readline(prompt="How many groups?  " )
-    if(is.null(set.p)) set.p = readline(prompt="What degree of polynomial?  " )
-    set.available = grepl(paste("k",set.k,"p",set.p,sep=""),names(models.list))
-    if(sum(set.available) == 0 ) stop(" This combination of groups and polynomials is not available.")
-    select.model = models.list[set.available][[1]]
-    attributes(select.model)$k = set.k
-    attributes(select.model)$p = set.p
-    return(select.model)
-  }
  
 
 # get model terms from data
