@@ -95,64 +95,6 @@ load.traj.data = function(ID.index = NULL,
                     eval.plot.list = eval.plot.list))
         }
 # fit multiple crimCV GBTM models over k and p grid
-    fit.gbtm = function(data = traj_data,
-                        evaluate.k.groups = c(2,3),
-                        evaluate.p.polynomials = c(1,3),
-                        run.loocv = F,
-                        method = "ZIP",
-                        init.proc = 20,
-                        Risk.set = NULL,
-                        ...
-                        ){
-
-      cv.eval.list = list()
-      eval.stats = data.frame(k=NA,p=NA,value=NA,type=NA)
-      index = 0
-      for(k in evaluate.k.groups){
-        for(p in evaluate.p.polynomials){
-
-          index = index + 1
-          cv.eval.list[[index]] = list()
-          attributes(cv.eval.list[[index]])$Groups = k
-          attributes(cv.eval.list[[index]])$Poly = p
-          names(cv.eval.list)[index] = paste("k",k,"p",p,sep="")
-
-          cat("\n Fitting GBTM for k=", k, " and p=",p,"... \n",sep="")
-
-          tryCatch({
-            crimCV.model.temp = crimCV(Dat = as.matrix(data[,-1]),
-                                        ng = k,
-                                        dpolyp = p,
-                                        dpolyl = p,
-                                        rcv = run.loocv,     
-                                        model = method,
-                                        init = init.proc,
-                                        Risk = Risk.set
-                                       )
-            cv.eval.list[[index]] = crimCV.model.temp
-
-            tryCatch({
-
-              AIC.temp = crimCV.model.temp$AIC
-              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=AIC.temp,type="AIC"))
-
-              BIC.temp = crimCV.model.temp$BIC
-              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=BIC.temp,type="BIC"))
-
-              if(with(crimCV.model.temp,exists("cv"))){
-              RCV.temp = crimCV.model.temp$cv  
-              eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
-              }
-
-
-
-            }, error = function(e){cat("Something went wrong with eval. stats. of k=",k," p=",p," - Continue")}
-            )
-          }, error = function(e){cat("Something went wrong while fitting k=",k," p=",p," - Continue")}
-            )
-
-        }
-
 fit.gbtm = function(data = traj_data,
                     evaluate.k.groups = NULL,
                      evaluate.p.polynomials = NULL,
