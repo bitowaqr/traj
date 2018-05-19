@@ -228,50 +228,51 @@ fit.gbtm = function(data = traj_data,
     }
 
 # plot observed average traj per group
-    plot.mean.per.group=function(model = select.model, 
-             data = traj_data,
-             y.axis.label = "Y-axis label",
-             x.axis.label = "X-axis label",
-             plot.title = "Plot title",
-             plot.total = T){
-      membership = data.frame(ID = data$ID,
-                              group = apply(summary(model),1,function(x)which(x == max(x))))
-      n_members = data.frame(table(membership$group))
-      names(n_members) = c("group","n_members")
+    
+  plot.mean.per.group = function(model = select.model, 
+                                 data = traj_data,
+                                 y.axis.label = "Y-axis label",
+                                 x.axis.label = "X-axis label",
+                                 plot.title = "Plot title",
+                                 plot.total = T){
+    membership = data.frame(ID = data$ID,
+                            group = apply(summary(model),1,function(x)which(x == max(x))))
+    n_members = data.frame(table(membership$group))
+    names(n_members) = c("group","n_members")
+    
+    traj_data_long = melt(data,id.vars="ID")
+    names(traj_data_long)  = c("ID","time","value")
+    traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
+    traj_data_long = merge(traj_data_long,membership,"ID")
+    traj_data_long$group = as.factor(traj_data_long$group)
+    
+    p.poly = as.numeric(attributes(model)$p)
+    k.group = as.numeric(attributes(model)$k)
+    
+    traj_data_long$value[traj_data_long$value<0] = NA
+    long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
+    pop.average.traj =  aggregate(value ~ time, traj_data_long, function(x) mean( x , na.rm = T))
+    
+    model.plot.from.data = ggplot(long.dat.means) +
+      geom_line(aes(x=time,y=value,col=group)) +
+      scale_color_manual(lab=paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
+                         values=as.numeric(as.character(n_members$group))+1,
+                         name="Average group trajectories") +
+      theme_minimal()
+    if(plot.total ==T){
       
-      traj_data_long = melt(data,id.vars="ID")
-      names(traj_data_long)  = c("ID","time","value")
-      traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
-      traj_data_long = merge(traj_data_long,membership,"ID")
-      traj_data_long$group = as.factor(traj_data_long$group)
       
-      p.poly = as.numeric(attributes(model)$p)
-      k.group = as.numeric(attributes(model)$k)
-      
-      traj_data_long$value[traj_data_long$value<0] = NA
-      long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
-      
-      
-      model.plot.from.data = ggplot(long.dat.means) +
-        geom_line(aes(x=time,y=value,col=group)) +
-        scale_color_manual(lab=paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
-                           values=as.numeric(as.character(n_members$group))+1,
-                           name="Average group trajectories") +
-        theme_minimal()
-      if(plot.total ==T){
-     
-          
-        model.plot.from.data = 
-          model.plot.from.data +
-          geom_line(data = long.dat.means, aes(x=time,y=value,col="Total")) +
-          scale_color_manual(lab=c(paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
-                                   paste("Total n=",sum(n_members$n_members)," (100%)")),
-                             values=c(as.numeric(as.character(n_members$group))+1,1),
-                             name="Average group trajectories") 
-      }
-      
-      return(model.plot.from.data)
+      model.plot.from.data = 
+        model.plot.from.data +
+        geom_line(data = pop.average.traj, aes(x=as.numeric(time),y=value,group="Total",col="Total")) +
+        scale_color_manual(lab=c(paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
+                                 paste("Total n=",sum(n_members$n_members)," (100%)")),
+                           values=c(as.numeric(as.character(n_members$group))+1,1),
+                           name="Average group trajectories") 
     }
+    
+    return(model.plot.from.data)
+  }
 
                   
 # plot group traj overview and individual groups
