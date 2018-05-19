@@ -174,7 +174,18 @@ fit.gbtm = function(data = traj_data,
                 eval.stats = eval.stats))
   }
   
- 
+ # Select model for further analysis
+set.model = function(models.list = fitted.gbtm$cv.eval.list,
+                       set.k = NULL,
+                       set.p = NULL){
+    cat("\n Select the model you want to further evaluate:")
+    if(is.null(set.k)) set.k = readline(prompt="How many groups?  " )
+    if(is.null(set.p)) set.p = readline(prompt="What degree of polynomial?  " )
+    set.available = grepl(paste("k",set.k,"p",set.p,sep=""),names(models.list))
+    if(sum(set.available) == 0 ) stop(" This combination of groups and polynomials is not available.")
+    select.model = models.list[set.available]
+    return(select.model)
+  }
 
 # get model terms from data
 
