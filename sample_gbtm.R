@@ -96,6 +96,9 @@
 #  6. Create fancy GBTM-traj plots       #
 #----------------------------------------#
     
+  ## The (adjusted) generic plot function from crimCV
+    plot(select.model)
+                                     
   ## Create complex plot: overview and individual group average traj + individual traj
     complex.plot = plot.gbtm.groups(data = traj_data,
                                     model = select.model,
