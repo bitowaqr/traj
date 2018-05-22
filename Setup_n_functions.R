@@ -188,37 +188,61 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
   }
 
 # get model terms from data
-
-    get.model.terms = function(model = select.model, 
-                               data = traj_data){
-      
-      membership = data.frame(ID = data$ID,
-                                                 group = apply(summary(model),1,function(x)which(x == max(x))))
-      traj_data_long = melt(data,id.vars="ID")
-      names(traj_data_long)  = c("ID","time","value")
-      traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
-      traj_data_long = merge(traj_data_long,membership,"ID")
-      traj_data_long$group = as.factor(traj_data_long$group)
-      traj_data_long$value[traj_data_long$value<0] = NA
-      
-      p.poly = dim(model$beta)[1]-1
-      k.group = dim(model$beta)[2]
-      
-      model.spec = matrix(data=NA, ncol=p.poly+1,nrow=k.group)
-      colnames(model.spec) = c("Intercept",paste("Polynomial",1:p.poly))
-      rownames(model.spec) = c(paste("Group",1:k.group))
-      
-      for(k in 1:k.group){
-        temp = summary(lm(value ~ 1+poly(time,p.poly,raw=T), traj_data_long[traj_data_long$group==k,]))
-        temp.coef = round(temp$coefficients[,1],2)
-        significance = ifelse(temp$coefficients[,4]<0.05,"*"," ")
-        significance.coef = paste(temp.coef,significance,sep="")
-        temp.input = formatC(significance.coef)
-        model.spec[k,] = temp.input
-      }
-     
-      return(model.spec)
-    }
+get.model.terms = function(model = select.model,data = traj_data){
+  if(class(model)[1] != "dmZIP"){stop("\n Error: Model is not a dmZIP-object.")}
+  
+    membership = data.frame(ID = data$ID,
+                          group = apply(summary(model),1,function(x)which(x == max(x))))
+  len.dat = (length(data) -1)/2
+  data = data[,1:(len.dat+1)]
+  traj_data_long = melt(data,id.vars="ID")
+  names(traj_data_long)  = c("ID","time","value")
+  traj_data_long$time = as.numeric(gsub("x","",traj_data_long$time))
+  traj_data_long = merge(traj_data_long,membership,"ID")
+  traj_data_long$group = as.factor(traj_data_long$group)
+  traj_data_long$value[traj_data_long$value<0] = NA
+  
+  p.poly = dim(model$beta)[1]-1
+  k.group = dim(model$beta)[2]
+  
+  zipm.list = list()
+  count.model = matrix(ncol= p.poly + 1, nrow = k.group)
+  zero.inflation.model = matrix(ncol= p.poly + 1, nrow = k.group)
+  
+  test.df = data.frame(cluster = NA, time = NA, value = NA)
+  
+  for(k in 1:k.group){
+    dat.t = traj_data_long[traj_data_long$group==k,]
+    zipm = zeroinfl(value ~ 1+poly(time,p.poly,raw=T), data=dat.t, dist = "poisson", link = "logit")
+    pred = predict(zipm,newdata = data.frame(time = c(1,2,3,4,5,6,7,8,9)))
+    zipm.list[[k]] = summary(zipm)
+    temp.df = data.frame(cluster = k, time = c(1,2,3,4,5,6,7,8,9), value = pred)
+    test.df = rbind(test.df,temp.df)
+    
+    temp.num = as.numeric(zipm.list[[k]]$coefficients$count[,1])
+    temp.num = formatC(round(temp.num,3),digits=3,format="f")
+    count.model[k,] = ifelse(zipm.list[[k]]$coefficients$count[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
+    
+    temp.num = as.numeric(zipm.list[[k]]$coefficients$zero[,1])
+    temp.num = formatC(round(temp.num,3),digits=3,format="f")
+    zero.inflation.model[k,] = ifelse(zipm.list[[k]]$coefficients$count[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
+  }
+  
+  
+  colnames(zero.inflation.model) = c("Intercept", paste("Poly",1:p.poly))
+  rownames(zero.inflation.model) = paste("Group",1:k.group)
+  
+  colnames(count.model) = c("Intercept", paste("Poly",1:p.poly))
+  rownames(count.model) = paste("Group",1:k.group)
+  
+  
+  model.spec = list(model = list(count.model = count.model,
+                                 zero.inflation.model = zero.inflation.model),
+                    predicted.group.values = test.df)
+    attributes(model.spec$model)$names = c("Count model coefficients (poisson with log link):",
+                                           "Zero-inflation model coefficients (binomial with logit link):")
+    return(model.spec)
+}
                                                              
                                                              
  # retrieve probabilistic and deterministic group membership
