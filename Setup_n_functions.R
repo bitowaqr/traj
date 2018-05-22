@@ -314,7 +314,7 @@ get.model.terms = function(model = select.model,data = traj_data){
 # plot group traj overview and individual groups
                              
 
-plot.gbtm.groups(data = traj_data,
+plot.gbtm.groups=function(data = traj_data,
                  model = select.model,
                  set.y.limit = NULL,  # c(0,40)
                  individual.group.names = NULL, # give names
