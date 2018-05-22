@@ -228,7 +228,8 @@ get.model.terms = function(model = select.model,data = traj_data){
     zero.inflation.model[k,] = ifelse(zipm.list[[k]]$coefficients$count[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
   }
   
-  
+  test.df$cluster = as.factor(test.df$cluster)
+                                        
   colnames(zero.inflation.model) = c("Intercept", paste("Poly",1:p.poly))
   rownames(zero.inflation.model) = paste("Group",1:k.group)
   
