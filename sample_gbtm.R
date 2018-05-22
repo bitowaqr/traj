@@ -76,7 +76,7 @@
     # show beginining of probabilistic membership table
     head(member_list$prob.membership)
     # show beginining of determinsitic membership table
-    head(member_list$prob.membership)
+    head(member_list$deter.membership)
     # Group membership frequency table
     member_list$deter.membership.table
     
