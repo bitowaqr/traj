@@ -2,12 +2,6 @@
 # to run 'traj' cluster analysis
 # modified by Paul Schneider, 2018
 
-
-# missing:
-# make an inital plot for all pre-subgroups?
-# make an inital plot for one pre-subgroups?
-# error in pre subgroup 5
-
 library(shiny)
 library(DT)
 url = "https://raw.githubusercontent.com/bitowaqr/traj/master/Setup_n_functions.R"
