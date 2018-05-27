@@ -2,6 +2,12 @@
 # to run 'traj' cluster analysis
 # modified by Paul Schneider, 2018
 
+
+# missing:
+# make an inital plot for all pre-subgroups?
+# make an inital plot for one pre-subgroups?
+# error in pre subgroup 5
+
 library(shiny)
 library(DT)
 url = "https://raw.githubusercontent.com/bitowaqr/traj/master/Setup_n_functions.R"
@@ -111,11 +117,11 @@ traj.k.mean_shiny = function( processed_data = traj_data,
     s1 = step1measures(Data = processed_data[,c(1,min.data.index:max.data.index)], 
                        Time = processed_data[,c(1,min.time.index:max.time.index)], 
                        ID = T ) 
-  }, error = function(e) cat("\n Oops...Something went wring in step 1"))
+  }, error = function(e) cat("\n Oops...Something went wrong in step 1"))
   cat("\n Start Step 2: ")
   tryCatch({
     s2all = step2factors(s1) 
-  }, error = function(e) cat("\n Oops...Something went wring in step 2"))
+  }, error = function(e) cat("\n Oops...Something went wrong in step 2. Maybe one or more columns/time points contains less than 5 valid observations?!"))
   cat("\n Start Step 3: ")
   tryCatch({
     print(nclusters_set)
@@ -123,7 +129,7 @@ traj.k.mean_shiny = function( processed_data = traj_data,
                           nclusters = nclusters_set,
                           criteria = select_criteria,
                           nstart = init_value)  # 5 clusters
-  }, error = function(e) cat("\n Oops...Something went wring in step 3"))
+  }, error = function(e) cat("\n Oops...Something went wrong in step 3"))
   # clust.build.plot(s3all,y.max.lim =y.max.lim)
   k.membership.table = data.frame(table(s3all$clusters$cluster))
   k.membership = s3all$clusters
@@ -153,6 +159,15 @@ traj.k.mean_shiny = function( processed_data = traj_data,
       stat_summary(aes(group = cluster), fun.y = mean, geom = 'line',linetype="dashed", size=1, alpha=1,col="black") +
       scale_color_manual(values= k.k+1,labels=names.clust$n,name="Clusters") +
       theme(legend.position = "top") +
+      ylab(set_y_label) +
+      xlab(set_x_label)
+    
+    
+    pre_all_overview = 
+      ggplot(indiv.data,aes(x=variable,y=jitter(value))) + 
+      geom_line(aes(col=ID),alpha=0.3,size=0.5) +
+      stat_summary(aes(x=variable), fun.y = mean, geom = 'line',linetype="dashed", size=1, alpha=1,col="black") +
+      theme(legend.position = "none") +
       ylab(set_y_label) +
       xlab(set_x_label)
     
@@ -249,7 +264,8 @@ traj.k.mean_shiny = function( processed_data = traj_data,
     sample.combined.individual.plot = sample.combined.individual.plot,
     sample.individual.plot = sample.individual.plot,
     all.individual.plot = all.individual.plot,
-    individual.group.plots = individual.group.plots
+    individual.group.plots = individual.group.plots,
+    pre_all_overview = pre_all_overview
   )
   
   return(cluster.analysis)
@@ -295,13 +311,18 @@ server <- function(input, output, session){
                                                         set_subgroup = input$set_subgroup_input,
                                                         n_nrow = input$n_row_input))
       isolate(values$list$plot_overview <- traj_analysis_results$all.individual.plot )
+      isolate(values$list$plot_pre_overview <- traj_analysis_results$pre_all_overview + ggtitle("Pre-defined Pop. mean traj"))
       isolate(values$list$individual.group.plots <- traj_analysis_results$individual.group.plots)
       isolate(values$list$membership.table <- traj_analysis_results$membership.table)
       isolate(values$list$s_stat <- traj_analysis_results[1:3])
     })
     
-    output$plot_overview <- renderPlot({values$list$plot_overview},
-                                       height = 480, width = "auto")
+    output$plot_overview <- renderPlot({values$list$plot_overview}
+                                       #,height = 480, width = "auto"
+                                       )
+    output$plot_pre_overview <- renderPlot({values$list$plot_pre_overview}
+                                           #,height = 480, width = "auto"
+                                           )
     output$plot_individual_group <- renderPlot({values$list$individual.group.plots[[as.numeric(input$select_group_for_plot)]][[1]]})
     output$summary_individual_group <- renderPrint({print(values$list$individual.group.plots[[as.numeric(input$select_group_for_plot)]][[2]])})
     output$freq_table <- renderTable({values$list$membership.table})
@@ -346,7 +367,12 @@ ui<- shinyUI(fluidPage(
              "Frequency table of predefined clusters:",
              tableOutput('pre_clusters')
            ),
-           mainPanel(plotOutput("plot_overview"))
+           mainPanel("Pre-defined Pop. mean trajectory",
+                     plotOutput("plot_pre_overview"),
+                     "Identified latent group trajectories",
+             plotOutput("plot_overview")
+                     
+                     )
   ),
   tabPanel("Plot individual grpuos",
            sidebarPanel(
@@ -360,7 +386,7 @@ ui<- shinyUI(fluidPage(
   ),
   tabPanel("traj24 stats",
            sidebarPanel(
-             selectInput("select_step", "Select statistic",choices = c(1,2,3),selected = 1)
+             selectInput("select_step", "Select statistic",choices = c(1,2,3),selected = 3)
            ),
            mainPanel(verbatimTextOutput("step_stat_printput"))
   )
