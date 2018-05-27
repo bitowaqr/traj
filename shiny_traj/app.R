@@ -1,4 +1,4 @@
-# a shiny app
+# a shiny app test
 # to run 'traj' cluster analysis
 # modified by Paul Schneider, 2018
 
