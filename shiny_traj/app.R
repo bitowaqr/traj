@@ -2,6 +2,12 @@
 # to run 'traj' cluster analysis
 # modified by Paul Schneider, 2018
 
+ # # # to execute this app remotely, run the follwoing three lines of code:
+    # if(eval(require(RCurl))==0){install.packages("RCurl")}
+    # url = "https://raw.githubusercontent.com/bitowaqr/traj/master/shiny_traj/app.R"
+    # eval(parse(text = RCurl::getURL(url)), envir= .GlobalEnv)
+
+
 library(shiny)
 library(DT)
 url = "https://raw.githubusercontent.com/bitowaqr/traj/master/Setup_n_functions.R"
