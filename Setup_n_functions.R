@@ -223,7 +223,7 @@ get.model.terms = function(model = select.model,data = traj_data){
     
     temp.num = as.numeric(zipm.list[[k]]$coefficients$zero[,1])
     temp.num = formatC(round(temp.num,3),digits=3,format="f")
-    zero.inflation.model[k,] = ifelse(zipm.list[[k]]$coefficients$count[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
+    zero.inflation.model[k,] = ifelse(zipm.list[[k]]$coefficients$zero[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
   }
   
   test.df$cluster = as.factor(test.df$cluster)
