@@ -762,6 +762,8 @@ dmZIP =
                         as.integer(npl), as.integer(ng), err = as.integer(0))
       if (tFrtr$err != 0) 
         next
+      if (is.na(tFrtr$llike ))
+        next
       if (tFrtr$llike > llike) {
         Frtr <- tFrtr
         llike <- tFrtr$llike
