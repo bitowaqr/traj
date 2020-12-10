@@ -1,3 +1,7 @@
+*.bak
+*.html
+*.Rmd
+*cache
 *.Rproj
 .Rproj.user
 .Rhistory
