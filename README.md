@@ -99,9 +99,8 @@ if (enable_multi_cores) {
   # There is no progress monitoring in this iteration.
   cv.eval.list <- foreach (k = n.cluster ) %:% 
     foreach (p = p.poly) %dopar% { 
-      res <- tryCatch({
-        crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
-      }, error =function(e){NA})
+      source(url) # need to do this here or the working won't use the functions
+      crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
       
     }
   stopCluster(cl)
