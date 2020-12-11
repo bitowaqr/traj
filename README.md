@@ -98,7 +98,7 @@ if (enable_multi_cores) {
   cat("\n Running models for", length(n.cluster), "Groups, and",length(p.poly ),"polynomials...")
   # There is no progress monitoring in this iteration.
   cv.eval.list <- foreach (k = n.cluster ) %:% 
-    foreach (p = p.poly) %dopar% { 
+    foreach (p = p.poly, .errorhandling = 'pass') %dopar% { 
       source(url) # need to do this here or the working won't use the functions
       crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
       
