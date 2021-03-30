@@ -1,6 +1,7 @@
 # setup
 # load and install libraries
-required_packages<-c("crimCV","foreign","ggplot2","cowplot","reshape2","dplyr","traj","cowplot","knitr","pscl") 
+required_packages<-c("crimCV","foreign","ggplot2","cowplot","reshape2","dplyr","tidyr",
+                     "traj","cowplot","knitr","pscl","foreach","parallel","doParallel")
 
 pft_packages <- function(package){
   for(i in 1:length(package)){
@@ -16,15 +17,15 @@ pft_packages(required_packages)
 load.traj.data = function(ID.index = NULL,
                           time.points = NULL,
                           path = NULL){
-  
+
   if(is.null(path)) {
     cat("\n \n Select your dta or csv data file \n")
     cat("Works with data organized like this (with or withour ID) \n \n")
     print(head(sample_traj_data)[1:3,1:4])
-    
+
     path = file.choose(file.path())
   }
-  
+
   ending = substr(path,nchar(path)-2,nchar(path))
   if(ending == "csv"){
     dat = read.csv(path)
@@ -32,7 +33,7 @@ load.traj.data = function(ID.index = NULL,
   if(ending == "dta"){
     dat = read.dta(path)
   }
-  
+
   # Set ID column
   cat("\n ")
   if(is.null(ID.index)){
@@ -42,13 +43,13 @@ load.traj.data = function(ID.index = NULL,
       ID = dat[,1]
       dat =dat[,-1]
     }
-    
+
     if(ID.index == "no" | ID.index == "No" | ID.index == "n" | ID.index == "N"){
       cat("\n ID variable created")
       ID = 1:length(dat[,1])
     }
   } else{stop("\n Invalid input <-  Types y or n")}
-  
+
   # Set time points
   if(is.null(time.points)){
     time.points = readline(prompt="How many observations per case?  " )}
@@ -56,21 +57,21 @@ load.traj.data = function(ID.index = NULL,
   if(time.points!=round(time.points)) stop(" Time points must be an integer")
   if(time.points > length(dat)) stop(" Data does not have enough columns")
   mat = dat[,1:time.points]
-  
+
   # make data set
   traj_data  = cbind(ID,mat)
   names(traj_data) = c("ID",paste("t",1:time.points,sep=""))
   cat("\n Data set with dimensions: cases=",dim(traj_data)[1],"; timepoints=",dim(traj_data)[2]-1," created!",sep="")
-  
+
   # missing data must be replaced with negative values
   na.sum = sum(is.na(traj_data))
   if(na.sum >0){
     traj_data[is.na(traj_data)] = -0.001
     cat("\n",na.sum,"missing values are being replaces with negative values!")
   }
-  
+
   return(traj_data)
-}  
+}
 
 
 
@@ -82,7 +83,7 @@ fit_eval = function(eval.stats.data = eval.stats){
   eval.data.list = list(); eval.plot.list = list()
   for(i in types){
     eval.data.list[[i]] = eval.stats.data[which(eval.stats.data$type==i),]
-    eval.plot.list[[i]] = ggplot(eval.data.list[[i]]) +   
+    eval.plot.list[[i]] = ggplot(eval.data.list[[i]]) +
       geom_line(aes(x=p,y=value,col=as.factor(k))) +
       #geom_point(aes(x=x,y=value,col=as.factor(cluster))) +
       geom_text(aes(x=p,y=value,col=as.factor(k),label=k),size=5) +
@@ -103,73 +104,73 @@ fit.gbtm = function(data = traj_data,
                     init.proc = 20,
                     Risk.set = NULL,
                     ...){
-  
+
   if(is.null(evaluate.k.groups)) {
     evaluate.k.groups = readline(prompt="Which number of groups to evaluate? For multiple, type: 1,2,...,k  " )
     evaluate.k.groups <- as.integer(strsplit(evaluate.k.groups, ",")[[1]])
   }
-  if(is.null(evaluate.p.polynomials)){ 
+  if(is.null(evaluate.p.polynomials)){
     evaluate.p.polynomials =  readline(prompt="Which degrees of polynomials to evaluate? For multiple, type: 1,2,...,p  " )
     evaluate.p.polynomials <- as.integer(strsplit(evaluate.p.polynomials, ",")[[1]])
   }
   if(is.null(run.loocv)) run.loocv = as.logical(readline(prompt="Run leave-one-out cross-validation? Type True or False  " ))
   if(is.null(method)) method = readline(prompt="Which method to use - type 'ZIP' or 'ZIPt'?  " )
-  
-  
+
+
   cv.eval.list = list()
   eval.stats = data.frame(k=NA,p=NA,value=NA,type=NA)
   index = 0
   for(k in evaluate.k.groups){
     for(p in evaluate.p.polynomials){
-      
+
       index = index + 1
       cv.eval.list[[index]] = list()
       attributes(cv.eval.list[[index]])$Groups = k
       attributes(cv.eval.list[[index]])$Poly = p
       names(cv.eval.list)[index] = paste("k",k,"p",p,sep="")
-      
+
       cat("\n Fitting GBTM for k=", k, " and p=",p,"... \n",sep="")
-      
+
       tryCatch({
         crimCV.model.temp = crimCV(Dat = as.matrix(data[,-1]),
                                    ng = k,
                                    dpolyp = p,
                                    dpolyl = p,
-                                   rcv = run.loocv,     
+                                   rcv = run.loocv,
                                    model = method,
                                    init = init.proc,
                                    Risk = Risk.set
         )
         cv.eval.list[[index]] = crimCV.model.temp
-        
+
         tryCatch({
-          
+
           AIC.temp = crimCV.model.temp$AIC
           eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=AIC.temp,type="AIC"))
-          
+
           BIC.temp = crimCV.model.temp$BIC
           eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=BIC.temp,type="BIC"))
-          
+
           if(with(crimCV.model.temp,exists("cv"))){
-            RCV.temp = crimCV.model.temp$cv  
+            RCV.temp = crimCV.model.temp$cv
             eval.stats = rbind(eval.stats,data.frame(k=k,p=p,value=RCV.temp,type="CV"))
           }
-          
-          
-          
+
+
+
         }, error = function(e){cat("Something went wrong with eval. stats. of k=",k," p=",p," - Continue")}
         )
       }, error = function(e){cat("Something went wrong while fitting k=",k," p=",p," - Continue")}
       )
-      
+
     }
   }
-  
+
   eval.stats = eval.stats[-1,]
-  
+
   tryCatch({eval.stats = fit_eval(eval.stats.data = eval.stats)}, error = function(e){cat("")})
-  
-  
+
+
   return(list(cv.eval.list = cv.eval.list,
               eval.stats = eval.stats))
 }
@@ -190,7 +191,7 @@ set.model = function(models.list = fitted.gbtm$cv.eval.list,
 # get model terms from data
 get.model.terms = function(model = select.model,data = traj_data){
   if(class(model)[1] != "dmZIP"){stop("\n Error: Model is not a dmZIP-object.")}
-  
+
   membership = data.frame(ID = data$ID,
                           group = apply(summary(model),1,function(x)which(x == max(x))))
   traj_data_long = melt(data,id.vars="ID")
@@ -199,16 +200,16 @@ get.model.terms = function(model = select.model,data = traj_data){
   traj_data_long = merge(traj_data_long,membership,"ID")
   traj_data_long$group = as.factor(traj_data_long$group)
   traj_data_long$value[traj_data_long$value<0] = NA
-  
+
   p.poly = dim(model$beta)[1]-1
   k.group = dim(model$beta)[2]
-  
+
   zipm.list = list()
   count.model = matrix(ncol= p.poly + 1, nrow = k.group)
   zero.inflation.model = matrix(ncol= p.poly + 1, nrow = k.group)
-  
+
   test.df = data.frame(cluster = NA, time = NA, value = NA)
-  
+
   for(k in 1:k.group){
     dat.t = traj_data_long[traj_data_long$group==k,]
     zipm = zeroinfl(value ~ 1+poly(time,p.poly,raw=T), data=dat.t, dist = "poisson", link = "logit")
@@ -216,25 +217,25 @@ get.model.terms = function(model = select.model,data = traj_data){
     zipm.list[[k]] = summary(zipm)
     temp.df = data.frame(cluster = k, time = c(1,2,3,4,5,6,7,8,9), value = pred)
     test.df = rbind(test.df,temp.df)
-    
+
     temp.num = as.numeric(zipm.list[[k]]$coefficients$count[,1])
     temp.num = formatC(round(temp.num,3),digits=3,format="f")
     count.model[k,] = ifelse(zipm.list[[k]]$coefficients$count[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
-    
+
     temp.num = as.numeric(zipm.list[[k]]$coefficients$zero[,1])
     temp.num = formatC(round(temp.num,3),digits=3,format="f")
     zero.inflation.model[k,] = ifelse(zipm.list[[k]]$coefficients$zero[,4]<.05,paste(temp.num,"*",sep=""),temp.num)
   }
-  
+
   test.df$cluster = as.factor(test.df$cluster)
-  
+
   colnames(zero.inflation.model) = c("Intercept", paste("Poly",1:p.poly))
   rownames(zero.inflation.model) = paste("Group",1:k.group)
-  
+
   colnames(count.model) = c("Intercept", paste("Poly",1:p.poly))
   rownames(count.model) = paste("Group",1:k.group)
-  
-  
+
+
   model.spec = list(model = list(count.model = count.model,
                                  zero.inflation.model = zero.inflation.model),
                     predicted.group.values = test.df)
@@ -263,7 +264,7 @@ gbtm.members = function(model = select.model,
 
 # plot observed average traj per group
 
-plot.mean.per.group = function(model = select.model, 
+plot.mean.per.group = function(model = select.model,
                                data = traj_data,
                                y.axis.label = "Y-axis label",
                                x.axis.label = "X-axis label",
@@ -273,20 +274,20 @@ plot.mean.per.group = function(model = select.model,
                           group = apply(summary(model),1,function(x)which(x == max(x))))
   n_members = data.frame(table(membership$group))
   names(n_members) = c("group","n_members")
-  
+
   traj_data_long = melt(data,id.vars="ID")
   names(traj_data_long)  = c("ID","time","value")
   traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
   traj_data_long = merge(traj_data_long,membership,"ID")
   traj_data_long$group = as.factor(traj_data_long$group)
-  
+
   p.poly = as.numeric(attributes(model)$p)
   k.group = as.numeric(attributes(model)$k)
-  
+
   traj_data_long$value[traj_data_long$value<0] = NA
   long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
   pop.average.traj =  aggregate(value ~ time, traj_data_long, function(x) mean( x , na.rm = T))
-  
+
   model.plot.from.data = ggplot(long.dat.means) +
     geom_line(aes(x=time,y=value,col=group)) +
     scale_color_manual(lab=paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
@@ -294,17 +295,17 @@ plot.mean.per.group = function(model = select.model,
                        name="Average group trajectories") +
     theme_minimal()
   if(plot.total ==T){
-    
-    
-    model.plot.from.data = 
+
+
+    model.plot.from.data =
       model.plot.from.data +
       geom_line(data = pop.average.traj, aes(x=as.numeric(time),y=value,group="Total",col="Total")) +
       scale_color_manual(lab=c(paste("Group ",n_members$group," n=",n_members$n_members," (",round(n_members$n_members/sum(n_members$n_members),2)*100,"%)",sep=""),
                                paste("Total n=",sum(n_members$n_members)," (100%)")),
                          values=c(as.numeric(as.character(n_members$group))+1,1),
-                         name="Average group trajectories") 
+                         name="Average group trajectories")
   }
-  
+
   return(model.plot.from.data)
 }
 
@@ -322,35 +323,35 @@ plot.gbtm.groups=function(data = traj_data,
                           y.axis.label = "y axis label",
                           x.axis.label = "x axis label",
                           plot.title = ""){
-  
+
   membershiplist = gbtm.members(data = data,model = model)
   membership = membershiplist$deter.membership
   membershiptable = membershiplist$deter.membership.table
-  
+
   # modeled data
-  modelled.list = plot(model,size=1,plot=F) 
-  
+  modelled.list = plot(model,size=1,plot=F)
+
   # long data
   traj_data_long = melt(data,id.vars="ID")
   names(traj_data_long)  = c("ID","time","value")
   traj_data_long$time = as.numeric(gsub("t","",traj_data_long$time))
   traj_data_long = merge(traj_data_long,membership,"ID")
   traj_data_long$group = as.factor(traj_data_long$group)
-  
+
   # population average
   pop.average.traj = aggregate(value ~time, traj_data_long, function(x) mean(x,na.rm=T))
-  
+
   #
   p.poly = as.numeric(attributes(model)$p)
   k.group = as.numeric(attributes(model)$k)
-  
+
   traj_data_long$value[traj_data_long$value<0] = NA
   long.dat.means = aggregate(value ~ group + time, traj_data_long, function(x) mean( x , na.rm = T))
-  
-  ######################## HALTED ############################model.plot.modelled.plus.pop.average = 
-  
-  
-  model.plot.modelled.plus.pop.average =  
+
+  ######################## HALTED ############################model.plot.modelled.plus.pop.average =
+
+
+  model.plot.modelled.plus.pop.average =
     ggplot() +
     geom_line(data=modelled.list,aes(x=time,y=value,col=cluster,linetype="Estimated")) +
     scale_y_continuous(name=y.axis.label) +
@@ -363,25 +364,25 @@ plot.gbtm.groups=function(data = traj_data,
     guides(color = guide_legend(order = 1),
            linetype = guide_legend(order=0)) +
     theme_minimal()
-  
-  
+
+
   if(plot.total == T) {
-    model.plot.modelled.plus.pop.average = 
-      model.plot.modelled.plus.pop.average + 
+    model.plot.modelled.plus.pop.average =
+      model.plot.modelled.plus.pop.average +
       geom_line(data=pop.average.traj,aes(x=time,y=value,col="Total",linetype="Average")) +
       scale_color_manual(lab=c(paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep=""),
                                paste("Total n=",sum(membershiptable[,2])," (100%)",sep="")),
                          values=c(as.numeric(as.character(membershiptable[,1]))+1,1),
                          name="Estimated group trajectories") +
       scale_linetype_manual(lab=c("Average","Estimated"),values = c(2,1), name="")}
-  
-  
+
+
   if(is.null(individual.group.names)) individual.group.names = paste("Group ",membershiptable[,1]," n=",membershiptable[,2]," (",round(membershiptable[,2]/sum(membershiptable[,2]),2)*100,"%)",sep="")
-  
+
   individual.plot.list = list()
   times.ex = unique(traj_data_long$time)
   for(i in 1:length(unique(traj_data_long$group))){
-    individual.plot.list[[i]] = 
+    individual.plot.list[[i]] =
       ggplot() +
       theme_minimal() +
       geom_line(data=traj_data_long[traj_data_long$group==i,],
@@ -395,22 +396,22 @@ plot.gbtm.groups=function(data = traj_data,
       ylab("") +
       xlab("") +
       ggtitle(individual.group.names[i]) +
-      coord_cartesian(ylim=set.y.limit) 
+      coord_cartesian(ylim=set.y.limit)
   }
   # individual.plot.list[[length(individual.plot.list)+1]] = get.legend
-  
-  
+
+
   if(is.null(n_row)) n_row = round(length(membershiptable[,1])/2,0)
-  
+
   if(plot_overview == T){
-    p1 = 
+    p1 =
       plot_grid(model.plot.modelled.plus.pop.average+
                   coord_cartesian(ylim=set.y.limit),
                 plot_grid(plotlist=individual.plot.list,
                           nrow=n_row),
                 ncol=1,rel_heights = c(2,3))
   } else {
-    p1 = 
+    p1 =
       plot_grid(plotlist=individual.plot.list,
                 nrow=n_row)
   }
@@ -473,8 +474,8 @@ plot.dmZIP <-
       return(mu)
     }
   }
-dmZIPt = 
-  function (Dat, X, ng, rcv = TRUE, init = 20, Risk = NULL) 
+dmZIPt =
+  function (Dat, X, ng, rcv = TRUE, init = 20, Risk = NULL)
   {
     initpr <- function(Dat, X, Risk, ni, no, npp, ng, npop) {
       pparam <- rep(0, (npp + 2) * ng * npop)
@@ -487,9 +488,9 @@ dmZIPt =
       Dmu <- t(Dmu)
       Dmu[Dat > -0.1] <- 0
       Datm <- Datm + Dmu
-      Frtr <- .Fortran("r_dmzipt_init_param", as.double(X), 
-                       as.double(Datm), as.double(Risk), pparam = as.double(pparam), 
-                       pllike = as.double(pllike), as.integer(ni), as.integer(no), 
+      Frtr <- .Fortran("r_dmzipt_init_param", as.double(X),
+                       as.double(Datm), as.double(Risk), pparam = as.double(pparam),
+                       pllike = as.double(pllike), as.integer(ni), as.integer(no),
                        as.integer(npp), as.integer(ng), as.integer(npop))
       out <- NULL
       out$pparam <- matrix(Frtr$pparam, npop, (npp + 2) * ng)
@@ -499,7 +500,7 @@ dmZIPt =
     ni <- nrow(Dat)
     no <- ncol(Dat)
     npp <- ncol(X)
-    if (nrow(X) != no) 
+    if (nrow(X) != no)
       stop("dmZIPt: Incorrect input nrows(X) must equal ncol(Dat)!")
     if (is.null(Risk)) {
       Risk <- matrix(1, ni, no)
@@ -529,15 +530,15 @@ dmZIPt =
       tau <- param[npp + 1, ]
       prob <- param[npp + 2, ]
       ggt <- matrix(0, ni, ng)
-      Info <- matrix(0, npp * ng + 2 * ng - 1, npp * ng + 2 * 
+      Info <- matrix(0, npp * ng + 2 * ng - 1, npp * ng + 2 *
                        ng - 1)
-      tFrtr <- .Fortran("r_dmzipt", as.double(X), as.double(Dat), 
-                        as.double(Risk), ggt = as.double(ggt), prob = as.double(prob), 
-                        beta = as.double(beta), tau = as.double(tau), llike = as.double(0), 
-                        Info = as.double(Info), as.integer(nn), as.integer(ni), 
-                        as.integer(no), as.integer(npp), as.integer(ng), 
+      tFrtr <- .Fortran("r_dmzipt", as.double(X), as.double(Dat),
+                        as.double(Risk), ggt = as.double(ggt), prob = as.double(prob),
+                        beta = as.double(beta), tau = as.double(tau), llike = as.double(0),
+                        Info = as.double(Info), as.integer(nn), as.integer(ni),
+                        as.integer(no), as.integer(npp), as.integer(ng),
                         err = as.integer(0))
-      if (tFrtr$err != 0) 
+      if (tFrtr$err != 0)
         next
       if (is.na(tFrtr$llike ))
         next
@@ -582,7 +583,7 @@ dmZIPt =
     out$tau <- exp(Frtr$tau)
     out$prob <- Frtr$prob
     out$gwt <- matrix(Frtr$ggt, ni, ng)
-    out$Info <- matrix(Frtr$Info, npp * ng + 2 * ng - 1, npp * 
+    out$Info <- matrix(Frtr$Info, npp * ng + 2 * ng - 1, npp *
                          ng + 2 * ng - 1)
     llike <- Frtr$llike
     out$llike <- llike
@@ -604,7 +605,7 @@ dmZIPt =
       cvllike <- rep(0, ni)
       cvDat <- matrix(0, ni, no)
       cvDat2 <- matrix(0, ni, no)
-      Info <- matrix(0, npp * ng + 2 * ng - 1, npp * ng + 2 * 
+      Info <- matrix(0, npp * ng + 2 * ng - 1, npp * ng + 2 *
                        ng - 1)
       errcnt <- 0
       for (i in 1:ni) {
@@ -623,11 +624,11 @@ dmZIPt =
         else {
           prob <- 1
         }
-        cFrtr <- .Fortran("r_dmzipt", as.double(X), as.double(tDat), 
-                          as.double(tRisk), ggt = as.double(ggt), prob = as.double(prob), 
-                          beta = as.double(beta), tau = as.double(tau), 
-                          llike = as.double(0), Info = as.double(Info), 
-                          as.integer(nn), as.integer(ni - 1), as.integer(no), 
+        cFrtr <- .Fortran("r_dmzipt", as.double(X), as.double(tDat),
+                          as.double(tRisk), ggt = as.double(ggt), prob = as.double(prob),
+                          beta = as.double(beta), tau = as.double(tau),
+                          llike = as.double(0), Info = as.double(Info),
+                          as.integer(nn), as.integer(ni - 1), as.integer(no),
                           as.integer(npp), as.integer(ng), err = as.integer(0))
         if (cFrtr$err != 0) {
           param[, i] <- c(out$beta, out$tau, out$prob)
@@ -692,10 +693,10 @@ dmZIPt =
     class(out) <- c("dmZIPt", class(out))
     out
   }
-dmZIP = 
-  function (Dat, X, Z, ng, rcv = TRUE, init = 20, Risk = NULL) 
+dmZIP =
+  function (Dat, X, Z, ng, rcv = TRUE, init = 20, Risk = NULL)
   {
-    initpr <- function(Dat, X, Z, Risk, ni, no, npp, npl, ng, 
+    initpr <- function(Dat, X, Z, Risk, ni, no, npp, npl, ng,
                        npop) {
       pparam <- rep(0, (npp + npl + 1) * ng * npop)
       pllike <- rep(0, npop)
@@ -707,13 +708,13 @@ dmZIP =
       Dmu <- t(Dmu)
       Dmu[Dat > -0.1] <- 0
       Datm <- Datm + Dmu
-      Frtr <- .Fortran("r_dmzip_init_param", as.double(X), 
-                       as.double(Z), as.double(Datm), as.double(Risk), pparam = as.double(pparam), 
-                       pllike = as.double(pllike), as.integer(ni), as.integer(no), 
-                       as.integer(npp), as.integer(npl), as.integer(ng), 
+      Frtr <- .Fortran("r_dmzip_init_param", as.double(X),
+                       as.double(Z), as.double(Datm), as.double(Risk), pparam = as.double(pparam),
+                       pllike = as.double(pllike), as.integer(ni), as.integer(no),
+                       as.integer(npp), as.integer(npl), as.integer(ng),
                        as.integer(npop))
       out <- NULL
-      out$pparam <- matrix(Frtr$pparam, npop, (npp + npl + 
+      out$pparam <- matrix(Frtr$pparam, npop, (npp + npl +
                                                  1) * ng)
       out$pllike <- Frtr$pllike
       out
@@ -722,9 +723,9 @@ dmZIP =
     no <- ncol(Dat)
     npp <- ncol(X)
     npl <- ncol(Z)
-    if (nrow(X) != nrow(Z)) 
+    if (nrow(X) != nrow(Z))
       stop("dmZIP: Incorrect input nrows(X) must equal ncol(Z)!")
-    if (nrow(X) != no) 
+    if (nrow(X) != no)
       stop("dmZIP: Incorrect input nrows(X) must equal ncol(Dat)!")
     if (is.null(Risk)) {
       Risk <- matrix(1, ni, no)
@@ -754,15 +755,15 @@ dmZIP =
       gamma <- param[(npp + 1):(npp + npl), ]
       prob <- param[npp + npl + 1, ]
       ggt <- matrix(0, ni, ng)
-      Info <- matrix(0, (npp + npl) * ng + ng - 1, (npp + npl) * 
+      Info <- matrix(0, (npp + npl) * ng + ng - 1, (npp + npl) *
                        ng + ng - 1)
-      tFrtr <- .Fortran("r_dmzip", as.double(X), as.double(Z), 
-                        as.double(Dat), as.double(Risk), ggt = as.double(ggt), 
-                        prob = as.double(prob), beta = as.double(beta), gamma = as.double(gamma), 
-                        llike = as.double(0), Info = as.double(Info), as.integer(nn), 
-                        as.integer(ni), as.integer(no), as.integer(npp), 
+      tFrtr <- .Fortran("r_dmzip", as.double(X), as.double(Z),
+                        as.double(Dat), as.double(Risk), ggt = as.double(ggt),
+                        prob = as.double(prob), beta = as.double(beta), gamma = as.double(gamma),
+                        llike = as.double(0), Info = as.double(Info), as.integer(nn),
+                        as.integer(ni), as.integer(no), as.integer(npp),
                         as.integer(npl), as.integer(ng), err = as.integer(0))
-      if (tFrtr$err != 0) 
+      if (tFrtr$err != 0)
         next
       if (is.na(tFrtr$llike ))
         next
@@ -807,7 +808,7 @@ dmZIP =
     out$gamma <- matrix(Frtr$gamma, npl, ng)
     out$prob <- Frtr$prob
     out$gwt <- matrix(Frtr$ggt, ni, ng)
-    out$Info <- matrix(Frtr$Info, (npp + npl) * ng + ng - 1, 
+    out$Info <- matrix(Frtr$Info, (npp + npl) * ng + ng - 1,
                        (npp + npl) * ng + ng - 1)
     llike <- Frtr$llike
     out$llike <- llike
@@ -829,7 +830,7 @@ dmZIP =
       nn <- (ni - 1) * no
       cvllike <- rep(0, ni)
       cvDat <- matrix(0, ni, no)
-      Info <- matrix(0, (npp + npl) * ng + ng - 1, (npp + npl) * 
+      Info <- matrix(0, (npp + npl) * ng + ng - 1, (npp + npl) *
                        ng + ng - 1)
       errcnt <- 0
       for (i in 1:ni) {
@@ -848,12 +849,12 @@ dmZIP =
         else {
           prob <- 1
         }
-        cFrtr <- .Fortran("r_dmzip", as.double(X), as.double(Z), 
-                          as.double(tDat), as.double(tRisk), ggt = as.double(ggt), 
-                          prob = as.double(prob), beta = as.double(beta), 
-                          gamma = as.double(gamma), llike = as.double(0), 
-                          Info = as.double(Info), as.integer(nn), as.integer(ni - 
-                                                                               1), as.integer(no), as.integer(npp), as.integer(npl), 
+        cFrtr <- .Fortran("r_dmzip", as.double(X), as.double(Z),
+                          as.double(tDat), as.double(tRisk), ggt = as.double(ggt),
+                          prob = as.double(prob), beta = as.double(beta),
+                          gamma = as.double(gamma), llike = as.double(0),
+                          Info = as.double(Info), as.integer(nn), as.integer(ni -
+                                                                               1), as.integer(no), as.integer(npp), as.integer(npl),
                           as.integer(ng), err = as.integer(0))
         if (cFrtr$err != 0) {
           param[, i] <- c(out$beta, out$gamma, out$prob)
@@ -914,7 +915,7 @@ dmZIP =
     out
   }
 
-summary.dmZIP = function (object, ...) 
+summary.dmZIP = function (object, ...)
 {
   # cat("Summary \n")
   # cat("======= \n \n")
@@ -934,7 +935,7 @@ summary.dmZIP = function (object, ...)
   return(gwt)
 }
 
-summary.dmZIPt = function (object, ...) 
+summary.dmZIPt = function (object, ...)
 {
   # cat("Summary \n")
   # cat("======= \n \n")
@@ -962,13 +963,13 @@ assignInNamespace("dmZIPt",dmZIPt ,ns="crimCV")
 # IMPROVE treaj function
 # solves an issue with highly correlated measurements which led to an error
 
-step1measures = function (Data, Time, ID = FALSE, verbose = TRUE) 
+step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
 {
   data = Data
   time = Time
   input.data = data
   input.time = time
-  if (dim(data)[1] != dim(time)[1] || dim(data)[2] != dim(time)[2]) 
+  if (dim(data)[1] != dim(time)[1] || dim(data)[2] != dim(time)[2])
     stop("data and time must be the same size.")
   sample.size = dim(data)[1]
   if (ID) {
@@ -984,15 +985,15 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
   for (i_sample in 1:sample.size) {
     real.obs.pos = which(!is.na(data[i_sample, ]))
     num.obs[i_sample] = length(real.obs.pos)
-    clean.data[i_sample, ] = as.vector(c(unlist(data[i_sample, 
+    clean.data[i_sample, ] = as.vector(c(unlist(data[i_sample,
                                                      real.obs.pos]), rep(NA, max.num.obs - num.obs[i_sample])))
-    clean.time[i_sample, ] = as.vector(c(unlist(time[i_sample, 
+    clean.time[i_sample, ] = as.vector(c(unlist(time[i_sample,
                                                      real.obs.pos]), rep(NA, max.num.obs - num.obs[i_sample])))
-    if (length(real.obs.pos) < 4) 
+    if (length(real.obs.pos) < 4)
       less.than.4.obs = c(less.than.4.obs, i_sample)
     clean.data.pos = which(!is.na(clean.data[i_sample, ]))
-    if (any(is.na(clean.time[i_sample, clean.data.pos]))) 
-      stop(paste("There must be a time associated to every observation. Line: ", 
+    if (any(is.na(clean.time[i_sample, clean.data.pos])))
+      stop(paste("There must be a time associated to every observation. Line: ",
                  i_sample, sep = ""))
   }
   if (!is.null(less.than.4.obs)) {
@@ -1001,20 +1002,20 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
   }
   sample.size = nrow(clean.data)
   if (ID) {
-    if (!is.null(less.than.4.obs)) 
+    if (!is.null(less.than.4.obs))
       IDvector = IDvector[-less.than.4.obs]
   } else {IDvector = seq(1:sample.size)}
   data = clean.data
   time = clean.time
   output = data.frame(matrix(ncol = 25, nrow = sample.size))
-  names = c("ID", "m1", "m2", "m3", "m4", "m5", "m6", "m7", 
-            "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", 
-            "m16", "m17", "m18", "m19", "m20", "m21", "m22", "m23", 
+  names = c("ID", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
+            "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15",
+            "m16", "m17", "m18", "m19", "m20", "m21", "m22", "m23",
             "m24")
   colnames(output) = names
   output$ID = IDvector
   for (i in 1:sample.size) {
-    output$m1[i] = max(data[i, ], na.rm = TRUE) - min(data[i, 
+    output$m1[i] = max(data[i, ], na.rm = TRUE) - min(data[i,
                                                            ], na.rm = TRUE)
   }
   for (i in 1:sample.size) {
@@ -1027,20 +1028,20 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
     output$m4[i] = 100 * output$m3[i]/output$m2[i]
   }
   for (i in 1:sample.size) {
-    output$m5[i] = pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i, 
+    output$m5[i] = pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i,
                                                                                 ], na.rm = TRUE)
   }
   for (i in 1:sample.size) {
-    output$m6[i] = (pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i, 
-                                                                                 ], na.rm = TRUE))/(pastecs::last(time[i, ], na.rm = TRUE) - 
+    output$m6[i] = (pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i,
+                                                                                 ], na.rm = TRUE))/(pastecs::last(time[i, ], na.rm = TRUE) -
                                                                                                       pastecs::first(time[i, ], na.rm = TRUE) + 1)
   }
   for (i in 1:sample.size) {
-    output$m7[i] = (pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i, 
+    output$m7[i] = (pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i,
                                                                                  ], na.rm = TRUE))/pastecs::first(data[i, ], na.rm = TRUE)
   }
   for (i in 1:sample.size) {
-    output$m8[i] = (pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i, 
+    output$m8[i] = (pastecs::last(data[i, ], na.rm = TRUE) - pastecs::first(data[i,
                                                                                  ], na.rm = TRUE))/output$m2[i]
   }
   for (i in 1:sample.size) {
@@ -1069,11 +1070,11 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
   for (i in 1:sample.size) {
     output$m12[i] = sqrt(var(FD[i, ], na.rm = TRUE))
   }
-  FDunit = matrix(nrow = sample.size, ncol = max.num.obs - 
+  FDunit = matrix(nrow = sample.size, ncol = max.num.obs -
                     1)
   for (i in 1:sample.size) {
     for (j in 1:(max.num.obs - 1)) {
-      FDunit[i, j] = FD[i, j]/(time[i, j + 1] - time[i, 
+      FDunit[i, j] = FD[i, j]/(time[i, j + 1] - time[i,
                                                      j])
     }
   }
@@ -1125,22 +1126,22 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
     mean.0 = 0.0001
   } else {mean.0 = temp.data[which.min(abs.temp.data)]/100}
   m4.na.pos = which(is.na(output$m4) | is.infinite(output$m4))
-  if (length(m4.na.pos) != 0) 
+  if (length(m4.na.pos) != 0)
     output$m4[m4.na.pos] = 100 * output$m3[m4.na.pos]/mean.0
   m8.na.pos = which(is.na(output$m8) | is.infinite(output$m8))
   if (length(m8.na.pos) != 0) {
-    if (length(m8.na.pos) > 1) 
-      output$m8[m8.na.pos] = (apply(data[m8.na.pos, ], 
-                                    1, pastecs::last, na.rm = TRUE) - apply(data[m8.na.pos, 
+    if (length(m8.na.pos) > 1)
+      output$m8[m8.na.pos] = (apply(data[m8.na.pos, ],
+                                    1, pastecs::last, na.rm = TRUE) - apply(data[m8.na.pos,
                                                                                  ], 1, pastecs::first, na.rm = TRUE))/mean.0
-    else output$m8[m8.na.pos] = (pastecs::last(data[m8.na.pos, ], 
+    else output$m8[m8.na.pos] = (pastecs::last(data[m8.na.pos, ],
                                                na.rm = TRUE) - pastecs::first(data[m8.na.pos, ], na.rm = TRUE))/mean.0
   }
   m16.na.pos = which(is.na(output$m16) | is.infinite(output$m16))
-  if (length(m16.na.pos) != 0) 
+  if (length(m16.na.pos) != 0)
     output$m16[m16.na.pos] = output$m15[m16.na.pos]/mean.0
   m22.na.pos = which(is.na(output$m22) | is.infinite(output$m22))
-  if (length(m22.na.pos) != 0) 
+  if (length(m22.na.pos) != 0)
     output$m22[m22.na.pos] = output$m21[m22.na.pos]/mean.0
   temp.data = data[(data[, 1] != 0), ]
   abs.temp.data = abs(temp.data)
@@ -1149,9 +1150,9 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
   m7.na.pos = which(is.na(output$m7) | is.infinite(output$m7))
   if (length(m7.na.pos) != 0) {
     if (length(m7.na.pos) > 1) {
-      output$m7[m7.na.pos] = (apply(data[m7.na.pos, ], 
-                                    1, pastecs::last, na.rm = TRUE) - apply(data[m7.na.pos, 
-                                                                                 ], 1, pastecs::first, na.rm = TRUE))/y1.0} else { output$m7[m7.na.pos] = (pastecs::last(data[m7.na.pos, ], 
+      output$m7[m7.na.pos] = (apply(data[m7.na.pos, ],
+                                    1, pastecs::last, na.rm = TRUE) - apply(data[m7.na.pos,
+                                                                                 ], 1, pastecs::first, na.rm = TRUE))/y1.0} else { output$m7[m7.na.pos] = (pastecs::last(data[m7.na.pos, ],
                                                                                                                                                                          na.rm = TRUE) - pastecs::first(data[m7.na.pos, ], na.rm = TRUE))/y1.0}
   }
   form10 = vector(length = sample.size)
@@ -1159,14 +1160,14 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
     model = lm(data[i_test, ] ~ time[i_test, ])
     r = resid(model)
     RSS = r %*% r
-    Y = subset(data[i_test, ], is.na(data[i_test, ]) == 
+    Y = subset(data[i_test, ], is.na(data[i_test, ]) ==
                  FALSE)
     m = length(Y)
     form10[i_test] = Y %*% Y - (sum(Y)^2)/m
-    if (form10[i_test] == 0) 
+    if (form10[i_test] == 0)
       form10[i_test] = NA
   }
-  if (!is.na(min(form10))) 
+  if (!is.na(min(form10)))
     syy.0 = min(form10)
   else syy.0 = 0.0001
   m10.na.pos = which(is.na(output$m10) | is.infinite(output$m10))
@@ -1175,7 +1176,7 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
       model = lm(data[i_na, ] ~ time[i_na, ])
       r = resid(model)
       RSS = r %*% r
-      Y = subset(data[i_na, ], is.na(data[i_na, ]) == 
+      Y = subset(data[i_na, ], is.na(data[i_na, ]) ==
                    FALSE)
       m = length(Y)
       SSREG = SYY[1] - RSS[1]
@@ -1187,37 +1188,37 @@ step1measures = function (Data, Time, ID = FALSE, verbose = TRUE)
   if (length(temp.data) == 0) {slope.0 = 0.0001
   } else { slope.0 = temp.data[which.min(abs.temp.data)]/100}
   m17.na.pos = which(is.na(output$m17) | is.infinite(output$m17))
-  if (length(m17.na.pos) != 0) 
+  if (length(m17.na.pos) != 0)
     output$m17[m17.na.pos] = output$m15[m17.na.pos]/slope.0
   m18.na.pos = which(is.na(output$m18) | is.infinite(output$m18))
-  if (length(m18.na.pos) != 0) 
+  if (length(m18.na.pos) != 0)
     output$m18[m18.na.pos] = output$m12[m18.na.pos]/slope.0
   temp.data = output$m14[(output$m14 != 0)]
   abs.temp.data = abs(temp.data)
   if (length(temp.data) == 0) {
     mean.abs.0 = 0.0001} else {mean.abs.0 = temp.data[which.min(abs.temp.data)]/100}
   m23.na.pos = which(is.na(output$m23) | is.infinite(output$m23))
-  if (length(m23.na.pos) != 0) 
+  if (length(m23.na.pos) != 0)
     output$m23[m23.na.pos] = output$m21[m23.na.pos]/mean.abs.0
   m24.na.pos = which(is.na(output$m24) | is.infinite(output$m24))
   if (length(m24.na.pos) != 0) {
     abs.na.data = abs(SD[m24.na.pos, ])
     if (length(m24.na.pos) > 1) {
-      output$m24[m24.na.pos] = apply(abs.na.data, 1, mean, 
+      output$m24[m24.na.pos] = apply(abs.na.data, 1, mean,
                                      na.rm = TRUE)/mean.abs.0 } else {
                                        output$m24[m24.na.pos] = mean(abs.na.data, na.rm = TRUE)/mean.abs.0}
   }
   if(sum(is.infinite(output$m7))){
     output$m7[is.infinite(output$m7)] = max(output$m7[!is.infinite(output$m7)])
-    
+
   }
   check.correlation( output[, -1], verbose)
-  trajMeasures = structure(list(measurments = output, data = cbind(IDvector, 
+  trajMeasures = structure(list(measurments = output, data = cbind(IDvector,
                                                                    clean.data), time = cbind(IDvector, clean.time)), class = "trajMeasures")
   return(trajMeasures)
 }
 
-check.correlation=function (output, verbose = TRUE, is.return = FALSE) 
+check.correlation=function (output, verbose = TRUE, is.return = FALSE)
 {
   cor.mat = cor(output)
   mes.names = names(output)
@@ -1230,21 +1231,21 @@ check.correlation=function (output, verbose = TRUE, is.return = FALSE)
       if (cor.mat[i_row, i_col] > 0.999) {
         corr.var = rbind(corr.var, c(i_col, i_row))
         if (verbose) {
-          print(paste("Correlation of ", i_row, " and ", 
-                      i_col, " : ", round(cor.mat[i_row, i_col], 
+          print(paste("Correlation of ", i_row, " and ",
+                      i_col, " : ", round(cor.mat[i_row, i_col],
                                           3), sep = ""))
           is.corr = TRUE
         }
       }
     }
   }
-  if (!is.corr && verbose) 
+  if (!is.corr && verbose)
     print("No correlations found. That is good.")
-  if (is.return) 
+  if (is.return)
     return(corr.var)
 }
 
-plotMeanTraj = function (x, clust.num = NULL, ...) 
+plotMeanTraj = function (x, clust.num = NULL, ...)
 {
   clust = x$clusters
   data = as.matrix(x$data)
@@ -1255,10 +1256,10 @@ plotMeanTraj = function (x, clust.num = NULL, ...)
   num.clust = length(unique.clusters)
   if (is.null(clust.num)) {
     num.plot.x = round(sqrt(num.clust))
-    if (num.plot.x^2 < num.clust) 
+    if (num.plot.x^2 < num.clust)
       num.plot.y = num.plot.x + 1
     else num.plot.y = num.plot.x
-    par(mfrow = c(num.plot.y, num.plot.x), oma = c(0, 0, 
+    par(mfrow = c(num.plot.y, num.plot.x), oma = c(0, 0,
                                                    4, 0))
   }
   else unique.clusters = clust.num
@@ -1281,21 +1282,21 @@ plotMeanTraj = function (x, clust.num = NULL, ...)
       data.time = clust.data[time.pos]
       mean.data = mean(data.time)
       centiles = 0
-      comp.mean = rbind(comp.mean, c(mean.data, centiles[1], 
+      comp.mean = rbind(comp.mean, c(mean.data, centiles[1],
                                      centiles[2]))
     }
     comp.mean = comp.mean[-1, ]
     args[["x"]] = unique.clust.time
     args[["y"]] = comp.mean[, 1]
-    if (!("xlim" %in% params)) 
+    if (!("xlim" %in% params))
       args[["xlim"]] = c(min.x, max.x)
-    if (!("ylim" %in% params)) 
+    if (!("ylim" %in% params))
       args[["ylim"]] = c(min.y, max.y)
-    if (!("main" %in% params)) 
+    if (!("main" %in% params))
       args[["main"]] = paste("Cluster ", i_clust, sep = "")
-    if (!("xlab" %in% params)) 
+    if (!("xlab" %in% params))
       args[["xlab"]] = xlab
-    if (!("ylab" %in% params)) 
+    if (!("ylab" %in% params))
       args[["ylab"]] = ylab
     do.call(plot, args)
     lines(unique.clust.time, comp.mean[, 1])
