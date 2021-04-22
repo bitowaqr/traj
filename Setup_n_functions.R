@@ -1046,7 +1046,7 @@ clusterAssignment <- function(object, newdata, Risk=NULL) {
 
 assignInNamespace("dmZIP",dmZIP ,ns="crimCV")
 assignInNamespace("dmZIPt",dmZIPt ,ns="crimCV")
-assignInNamespace("clusterAssignment",clusterAssignment ,ns="crimCV")
+#assignInNamespace("clusterAssignment",clusterAssignment ,ns="crimCV")
 
 
 
