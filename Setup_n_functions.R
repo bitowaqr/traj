@@ -955,8 +955,99 @@ summary.dmZIPt = function (object, ...)
   return(gwt)
 }
 
+
+
+clusterAssignment <- function(object, newdata, Risk=NULL) {
+  
+  assertthat::assert_that('dmZIP' %in% class(object),
+                          msg = "The clusterAssignment function only support dmZIP model!")
+  
+  X <- object$X
+  Z <- object$Z
+  beta <- object$beta
+  gamma <- object$gamma
+  prob <- object$prob
+  
+  ng = object$ng
+  
+  ni <- nrow(newdata)
+  no <- ncol(newdata)
+  if (hasName(object,'data')) {
+    df <- rbind(newdata,object$data)
+  } else {
+    df <- newdata
+  }
+  ni_df <- nrow(df)
+  no_df <- ncol(df)
+  
+  npp <- ncol(X)
+  npl <- ncol(Z)
+  
+  if (is.null(Risk)) {
+    Risk <- matrix(1, ni_df, no_df)
+  }
+  
+  nn <- ni_df * no_df
+  npr <- (npp + npl) * ng + ng
+  
+  ggt <- matrix(0, ni_df, ng)
+  Info <- matrix(0, (npp + npl) * ng + ng - 1, (npp + npl) * 
+                   ng + ng - 1)
+  
+  Frtr <- .Fortran("r_dmzip", as.double(X), as.double(Z), 
+                   as.double(df), as.double(Risk), ggt = as.double(ggt), 
+                   prob = as.double(prob), beta = as.double(beta), gamma = as.double(gamma), 
+                   llike = as.double(0), Info = as.double(Info), as.integer(nn), 
+                   as.integer(ni_df), as.integer(no_df), as.integer(npp), 
+                   as.integer(npl), as.integer(ng), err = as.integer(0))
+  print(paste0("err = ", Frtr$err))
+  out <- NULL
+  
+  if (Frtr$err != 0) {
+    cat(" [FAILED] \n")
+    return(out)
+  }
+  cat(" [DONE] \n")
+  flush.console()
+  out$beta <- matrix(Frtr$beta, npp, ng)
+  
+  out$gwt <- matrix(Frtr$ggt, ni_df, ng)
+  out$gwt <- out$gwt[1:ni, ]
+  
+  # rename cluster so that it aligns with the original cluster in the object
+  ord <- order(colSums(object$beta))
+  out$gwt <- out$gwt[ , order(colSums(out$beta))[order(ord)]]
+  out$beta <- object$beta
+  out$gamma <- object$gamma
+  out$ni <- ni
+  out$ng <- ng
+  out$X <- X
+  out$Z <- Z
+  class(out) <- c("dmZIP", class(out))
+  
+  # assign cluster membership
+  cluster_tmp <- unlist(apply(summary(out),1,
+                              function(x)which(x ==max(x))))
+  
+  # it is possible that one individual being assigned to two groups, 
+  # the 3 lines below remove one assignment, only keeps the first one assignment.
+  clustered_id <- read.table(text=names(cluster_tmp), sep = ".",colClasses = "character") 
+  dddd <- duplicated(clustered_id$V1)
+  cluster_tmp = cluster_tmp[!dddd ]
+  
+  gbtm_members = data.frame(ID =  rownames(newdata),
+                            cluster = factor(cluster_tmp ,levels = seq(k.set)))
+  
+  out$gbtm_members <- gbtm_members
+  
+  class(out) <- c("dmZIP", class(out))
+  out
+}
+
 assignInNamespace("dmZIP",dmZIP ,ns="crimCV")
 assignInNamespace("dmZIPt",dmZIPt ,ns="crimCV")
+assignInNamespace("clusterAssignment",clusterAssignment ,ns="crimCV")
+
 
 
 
