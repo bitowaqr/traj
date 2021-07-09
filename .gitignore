@@ -1,0 +1,10 @@
+.DS_Store
+*.bak
+*.html
+*.Rmd
+*cache
+*.Rproj
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata

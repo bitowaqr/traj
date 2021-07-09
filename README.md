@@ -2,6 +2,8 @@
 
   __Paul Schneider__  
   2018-04-30  
+  __Qingyang Li __  
+  2020-12-09  
 <br><br>
 
 
@@ -15,7 +17,7 @@ https://raw.githubusercontent.com/bitowaqr/traj/master/raw_code.R
 The chunk below installs and loads the required packages and also load some slightly *modified* functions from both packages.
 
 ```r
-url = "https://raw.githubusercontent.com/bitowaqr/traj/master/Setup_n_functions.R"
+url = "./Setup_n_functions.R"
 source(url)
 ```
 
@@ -75,43 +77,68 @@ __GBTM modeling using crimCV:__
 ```r
 # Set: 
   n.cluster = c(1,2,3) # 1.which k's to evaluate, 
-  p.poly = c(1,2,3) # 2. which p's to evaluate, 
+  p.poly = c(3,2,1) # 2. which p's to evaluate, usually the higher the p, the longer the running time.
   rcv = T # 3. do you want to run cross validation? T/F
+  enable_multi_cores = T #. Do you want to run the model fitting with parallel computing? T/F
 ```
 
 ## Fit models
 
 ```r
 # Run all models
+if (enable_multi_cores) {
+  library(foreach)
+  library(parallel)
+  library(doParallel)
+  
+  # Start a cluster using multiple CUP. Leaving one CPU for other tasks.
+  cl <- parallel::makeCluster(detectCores() - 1)
+  doParallel::registerDoParallel(cl)
+  
+  cat("\n Running models for", length(n.cluster), "Groups, and",length(p.poly ),"polynomials...")
+  # There is no progress monitoring in this iteration.
+  cv.eval.list <- foreach (k = n.cluster ) %:% 
+    foreach (p = p.poly, .errorhandling = 'pass') %dopar% { 
+      source(url) # need to do this here or the working won't use the functions
+      crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
+      
+    }
+  stopCluster(cl)
+  
+  # name the result list
+  for (index in 1:length(n.cluster)) {
+    names(cv.eval.list)[index] = paste("Groups",n.cluster[index],sep="_")
+    for (sub.index in 1:length(p.poly)) {
+      names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p.poly[sub.index],sep="_")
+      
+    }
+    
+  }
+} else {
   cv.eval.list = list()
   index = 0
   for(k in n.cluster)
   {
     sub.index = 0
     index = index + 1
-        cv.eval.list[[index]] = list()
-        names(cv.eval.list)[k] = paste("Groups",k,sep="_")
-        for(p in p.poly)
-          {
-          print(cat("\n Running models for", n.cluster[k], "Groups, and",p.poly[p],"polynomials..."))
-          cat("\n running k=",k,"poly=",p," \n")
-          sub.index = sub.index + 1
-          temp = crimCV(df,
-                        ng = k,
-                        dpolyp = p,
-                        rcv = rcv,     
-                        model = "ZIP"
-                        )
+    cv.eval.list[[index]] = list()
+    names(cv.eval.list)[k] = paste("Groups",k,sep="_")
+    for(p in p.poly)
+    {
+      print(cat("\n Running models for", n.cluster[k], "Groups, and",p.poly[p],"polynomials..."))
+      cat("\n running k=",k,"poly=",p," \n")
+      sub.index = sub.index + 1
+      temp = tryCatch({
+        crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
+      }, error =function(e){NA})
       
-          cv.eval.list[[index]][[sub.index]] = temp
+      cv.eval.list[[index]][[sub.index]] = temp
       
-          names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p,sep="_")
-          }
+      names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p,sep="_")
+    }
   }
-  
-
+}
 ```
-    
 
 ## Model evaluation
 
@@ -183,7 +210,8 @@ model.eval.plot =
 model.eval.plot
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](figure-html/retrieve AIC, BIC and CV error for each of the models-1.png)<!-- -->
+
 
 ## Set the parameters for your model of choice
 
@@ -240,7 +268,7 @@ modelled.list$time = modelled.list$time
   model.plot.modelled
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-8-1.png)<!-- -->
+![](figure-html/estimated trajectories-1.png)<!-- -->
 
 ## Retrieve group function terms
 
@@ -295,8 +323,7 @@ modelled.list$time = modelled.list$time
   model.plot.from.data 
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-10-1.png)<!-- -->
-
+![](figure-html/Retrieve observed group trajectories-1.png)<!-- -->
 
 
 ## Setup for combined plot
@@ -358,18 +385,17 @@ model.plot.modelled.plus.pop.average =
     plot_grid(model.plot.modelled.plus.pop.average+
                 coord_cartesian(ylim=set.y.limit),
               plot_grid(plotlist=individual.plot.list,ncol=round(k.set/2,0)),ncol=1,rel_heights = c(2,3))
-  
   gbtm.mega.plot
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-12-1.png)<!-- -->
-
+![](figure-html/give names to clusters-1.png)<!-- -->
 
 
 
 # k-means clustering
 
 ## k-means of what?
+
 
 ```r
 ?step1measures # info shows the 24 measurements on which k-means is performend
@@ -494,22 +520,25 @@ from `step1measures` --> `step2factors` --> `step3clusters`
 ## k-24-means cluster analysis 
 
 
+
 ```r
 cluster.analysis.full = traj.k.mean( fill.data.matrix = test.data[,-1], ID = test.data$ID ,nclusters = NULL)
 ```
 
 ```
-## 
-##  Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
-## [1] "Correlation of m5 and m6 : 1"
-## [1] "Correlation of m12 and m13 : 1"
-## [1] "Correlation of m17 and m18 : 1"
-## [1] "m6 is removed because it is perfectly correlated with m5"  
-## [2] "m13 is removed because it is perfectly correlated with m12"
-## [1] "Computing reduced correlation e-values..."
+
+ Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
+[1] "Correlation of m5 and m6 : 1"
+[1] "Correlation of m12 and m13 : 1"
+[1] "Correlation of m17 and m18 : 1"
+[1] "m6 is removed because it is perfectly correlated with m5"  
+[2] "m13 is removed because it is perfectly correlated with m12"
+[1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+![](figure-html/unnamed-chunk-3-1.png)<!-- -->
+
 
 ```r
 # results
@@ -517,31 +546,31 @@ cluster.analysis.full$s3
 ```
 
 ```
-## Number of observations:  558 
-## 
-## Cluster distribution:
-## 
-##   1   2 
-## 531  27 
-## 
-## Measures with max.loading in factors:  m5 m10 m14 m16
-## 
-## If you report these results, please cite:
-## Sylvestre MP, et al. (2006). Classification of patterns of delirium severity scores over time in an elderly population. 
-## International Psychogeriatrics,18(4), 667-680. doi:10.1017/S1041610206003334.
+Number of observations:  558 
+
+Cluster distribution:
+
+  1   2 
+ 27 531 
+
+Measures with max.loading in factors:  m5 m10 m14 m16
+
+If you report these results, please cite:
+Sylvestre MP, et al. (2006). Classification of patterns of delirium severity scores over time in an elderly population. 
+International Psychogeriatrics,18(4), 667-680. doi:10.1017/S1041610206003334.
 ```
 
 ```r
 cluster.analysis.full$mean.cluster.plot
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-15-2.png)<!-- -->
+![](figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 ```r
 cluster.analysis.full$individual.cluster.plot
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-15-3.png)<!-- -->
+![](figure-html/unnamed-chunk-6-1.png)<!-- -->
 
 ## k-means clusters within GBTM clusters
 
@@ -562,66 +591,78 @@ for(k in unique.GBTM.clusters){
 ```
 
 ```
-## 
-##  Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
-## [1] "Correlation of m5 and m6 : 1"
-## [1] "Correlation of m12 and m13 : 1"
-## [1] "Correlation of m17 and m18 : 1"
-## [1] "m6 is removed because it is perfectly correlated with m5"  
-## [2] "m13 is removed because it is perfectly correlated with m12"
-## [1] "Computing reduced correlation e-values..."
+
+ Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
+[1] "Correlation of m5 and m6 : 1"
+[1] "Correlation of m12 and m13 : 1"
+[1] "Correlation of m17 and m18 : 1"
+[1] "m6 is removed because it is perfectly correlated with m5"  
+[2] "m13 is removed because it is perfectly correlated with m12"
+[1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+![](figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 ```
-## 
-##  Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
-## [1] "Correlation of m5 and m6 : 1"
-## [1] "Correlation of m12 and m13 : 1"
-## [1] "m6 is removed because it is perfectly correlated with m5"  
-## [2] "m13 is removed because it is perfectly correlated with m12"
-## [1] "Computing reduced correlation e-values..."
+
+ Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
+[1] "Correlation of m5 and m6 : 1"
+[1] "Correlation of m12 and m13 : 1"
+[1] "m6 is removed because it is perfectly correlated with m5"  
+[2] "m13 is removed because it is perfectly correlated with m12"
+[1] "Computing reduced correlation e-values..."
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-16-2.png)<!-- -->
-
 ```
-## 
-##  Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
-## [1] "Correlation of m5 and m6 : 1"
-## [1] "Correlation of m12 and m13 : 1"
-## [1] "Correlation of m17 and m18 : 0.999"
-## [1] "m6 is removed because it is perfectly correlated with m5"  
-## [2] "m13 is removed because it is perfectly correlated with m12"
-## [1] "Computing reduced correlation e-values..."
+Warning: `fun.y` is deprecated. Use `fun` instead.
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-16-3.png)<!-- -->
+![](figure-html/unnamed-chunk-7-2.png)<!-- -->
+
+```
+
+ Clustering needas at least 5 observation per case... Cases with fewer observations are being removed...! 
+[1] "Correlation of m5 and m6 : 1"
+[1] "Correlation of m12 and m13 : 1"
+[1] "Correlation of m17 and m18 : 0.999"
+[1] "m6 is removed because it is perfectly correlated with m5"  
+[2] "m13 is removed because it is perfectly correlated with m12"
+[1] "Computing reduced correlation e-values..."
+```
+
+![](figure-html/unnamed-chunk-7-3.png)<!-- -->
 
 ## Overiew plot
+
 
 
 ```r
 plot_grid(plotlist = clusters.within.clusters.plots)
 ```
 
-![](https://github.com/bitowaqr/traj/raw/master/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](figure-html/unnamed-chunk-8-1.png)<!-- -->
+
 
 ## References
-  
-  Jason D. Nielsen (2013). crimCV: Group-Based Modelling of Longitudinal Data. R package version 0.9.3.
+
+
+```
+  Jason D. Nielsen (2018). crimCV: Group-Based Modelling of
+  Longitudinal Data. R package version 0.9.6.
   https://CRAN.R-project.org/package=crimCV
-  
-  Sylvestre MP, et al. (2006). Classification of patterns of delirium severity scores over time in an elderly population.
-  International Psychogeriatrics, 18(4), 667-680. doi:10.1017/S1041610206003334.
 
-  Leffondree, K. et al. (2004). Statistical measures were proposed for identifying longitudinal patterns of change in
-  quantitative health indicators. Journal of Clinical Epidemiology, 57, 1049-1062. doi : 10.1016/j.jclinepi.2004.02.012.
+  Sylvestre MP, et al. (2006). Classification of patterns of delirium
+  severity scores over time in an elderly population. International
+  Psychogeriatrics, 18(4), 667-680. doi:10.1017/S1041610206003334.
 
+  Leffondree, K. et al. (2004). Statistical measures were proposed for
+  identifying longitudinal patterns of change in quantitative health
+  indicators. Journal of Clinical Epidemiology, 57, 1049-1062. doi :
+  10.1016/j.jclinepi.2004.02.012.
 
+```
 
 ## end
-
 
 

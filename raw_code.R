@@ -37,36 +37,64 @@
 ## set the grid of models to evaluate
   # Set: 
     n.cluster = c(1,2,3) # 1.which k's to evaluate, 
-    p.poly = c(1,2,3) # 2. which p's to evaluate, 
+    p.poly = c(3,2,1) # 2. which p's to evaluate, usually the higher the p, the longer the running time.
     rcv = T # 3. do you want to run cross validation? T/F
+    enable_multi_cores = T #. Do you want to run the model fitting with parallel computing? T/F
 
 ## model evaluation
   
   # Run all models
-    cv.eval.list = list()
-    index = 0
-    for(k in n.cluster)
-    {
-      sub.index = 0
-      index = index + 1
-          cv.eval.list[[index]] = list()
-          names(cv.eval.list)[k] = paste("Groups",k,sep="_")
-          for(p in p.poly)
-            {
-            print(cat("\n Running models for", n.cluster[k], "Groups, and",p.poly[p],"polynomials..."))
-            cat("\n running k=",k,"poly=",p," \n")
-            sub.index = sub.index + 1
-            temp = crimCV(df,
-                          ng = k,
-                          dpolyp = p,
-                          rcv = rcv,     
-                          model = "ZIP"
-                          )
+    if (enable_multi_cores) {
+      library(foreach)
+      library(parallel)
+      library(doParallel)
+      
+      # Start a cluster using multiple CUP. Leaving one CPU for other tasks.
+      cl <- parallel::makeCluster(detectCores() - 1)
+      doParallel::registerDoParallel(cl)
+      
+      cat("\n Running models for", length(n.cluster), "Groups, and",length(p.poly ),"polynomials...")
+      # There is no progress monitoring in this iteration.
+      cv.eval.list <- foreach (k = n.cluster ) %:% 
+        foreach (p = p.poly, .errorhandling = 'pass') %dopar% { 
+          source(url) # need to do this here or the working won't use the functions
+          crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
+          
+        }
+      stopCluster(cl)
+      
+      # name the result list
+      for (index in 1:length(n.cluster)) {
+        names(cv.eval.list)[index] = paste("Groups",n.cluster[index],sep="_")
+        for (sub.index in 1:length(p.poly)) {
+          names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p.poly[sub.index],sep="_")
+          
+        }
         
-            cv.eval.list[[index]][[sub.index]] = temp
-        
-            names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p,sep="_")
-            }
+      }
+    } else {
+      cv.eval.list = list()
+      index = 0
+      for(k in n.cluster)
+      {
+        sub.index = 0
+        index = index + 1
+        cv.eval.list[[index]] = list()
+        names(cv.eval.list)[k] = paste("Groups",k,sep="_")
+        for(p in p.poly)
+        {
+          print(cat("\n Running models for", n.cluster[k], "Groups, and",p.poly[p],"polynomials..."))
+          cat("\n running k=",k,"poly=",p," \n")
+          sub.index = sub.index + 1
+          temp = tryCatch({
+            crimCV::crimCV(df, ng = k,dpolyp = p,  rcv = rcv, model = "ZIP")
+          }, error =function(e){NA})
+          
+          cv.eval.list[[index]][[sub.index]] = temp
+          
+          names(cv.eval.list[[index]])[sub.index] = paste("polynomial",p,sep="_")
+        }
+      }
     }
     
 ## retrireve model evaluation results  
